@@ -1,0 +1,81 @@
+name: iOS
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+    paths-ignore: ["**.md", "docs/**", ".dev-notes/**", "herramientas/**", ".github/badges/**"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Sin cuenta de Apple Developer: compilación para el simulador, sin firma. Demuestra que compila.
+  simulador:
+    runs-on: macos-15
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Elegir el Xcode más nuevo del runner
+        run: |
+          xc=$(ls -d /Applications/Xcode_*.app | sort -V | tail -1)
+          sudo xcode-select -s "$xc"
+          xcodebuild -version
+
+      - run: npm ci
+      - run: npx tsc --noEmit
+      - run: npx expo prebuild --platform ios --clean --no-install
+
+      - name: pod install
+        working-directory: ios
+        run: pod install
+
+      - name: Compilar para el simulador
+        working-directory: ios
+        run: |
+          set -o pipefail
+          xcodebuild -workspace MineToy.xcworkspace -scheme MineToy -configuration Release \
+            -sdk iphonesimulator -destination "generic/platform=iOS Simulator" \
+            -derivedDataPath build CODE_SIGNING_ALLOWED=NO build | tail -n 40
+
+      - name: Empaquetar la app del simulador
+        run: |
+          app=$(ls -d ios/build/Build/Products/Release-iphonesimulator/*.app | head -1)
+          mkdir -p salida
+          ditto -c -k --keepParent "$app" salida/MineToy-simulador.zip
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MineToy-ios-simulador
+          path: salida/
+          retention-days: 14
+
+  insignia:
+    needs: simulador
+    if: always() && github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - name: Insignia de compilación
+        run: |
+          if [ "${{ needs.simulador.result }}" = success ]; then es=correcta; en=passing; color=6eff4a; else es=fallida; en=failing; color=c93434; fi
+          mkdir -p .github/badges
+          base="https://img.shields.io/badge"
+          curl -sfL "$base/compilaci%C3%B3n%20ios-$es-$color?style=for-the-badge&logo=githubactions&logoColor=white" -o .github/badges/compilacion-ios.svg
+          curl -sfL "$base/build%20ios-$en-$color?style=for-the-badge&logo=githubactions&logoColor=white" -o .github/badges/build-ios.svg
+          git add .github/badges
+          if git diff --cached --quiet; then exit 0; fi
+          git -c user.name=MineToy -c user.email=itzlightx@gmail.com commit -m "Insignia de compilación de iOS: $es"
+          for i in 1 2 3; do git pull --rebase -q && git push -q && exit 0; sleep 5; done
+          exit 1
