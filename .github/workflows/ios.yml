@@ -79,8 +79,8 @@ jobs:
           if [ "${{ needs.simulador.result }}" = success ]; then es=correcta; en=passing; color=6eff4a; else es=fallida; en=failing; color=c93434; fi
           mkdir -p .github/badges
           base="https://img.shields.io/badge"
-          curl -sfL "$base/compilaci%C3%B3n%20ios-$es-$color?style=for-the-badge&logo=githubactions&logoColor=white" -o .github/badges/compilacion-ios.svg
-          curl -sfL "$base/build%20ios-$en-$color?style=for-the-badge&logo=githubactions&logoColor=white" -o .github/badges/build-ios.svg
+          curl -sfL --retry 4 --retry-all-errors --retry-delay 5 "$base/compilaci%C3%B3n%20ios-$es-$color?style=for-the-badge&logo=githubactions&logoColor=white" -o .github/badges/compilacion-ios.svg
+          curl -sfL --retry 4 --retry-all-errors --retry-delay 5 "$base/build%20ios-$en-$color?style=for-the-badge&logo=githubactions&logoColor=white" -o .github/badges/build-ios.svg
           git add .github/badges
           if git diff --cached --quiet; then exit 0; fi
           git -c user.name=MineToy -c user.email=itzlightx@gmail.com commit -m "Insignia de compilación de iOS: $es"
