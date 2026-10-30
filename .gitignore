@@ -1,0 +1,13 @@
+node_modules/
+/ios/
+/android/
+.expo/
+dist/
+*.log
+*.keystore
+*.jks
+*.p8
+*.mobileprovision
+.env*
+.claude/
+bin/
