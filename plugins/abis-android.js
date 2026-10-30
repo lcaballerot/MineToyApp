@@ -1,21 +1,19 @@
 /**
  * Solo las arquitecturas de los teléfonos reales (arm64-v8a y armeabi-v7a) en el APK de Android.
  *
- * Sin filtro, el APK lleva las librerías nativas (WebRTC, Hermes, React Native) también para x86 y x86_64, que solo usan
- * los emuladores: 142 MB en 0.2.0. `abiFilters` se aplica también a las librerías que vienen precompiladas en AAR.
+ * Sin esto, el APK lleva las librerías nativas (WebRTC, Hermes, React Native, el lector de QR) también para x86 y x86_64,
+ * que solo usan los emuladores: 137 MB en 0.3.0, 74 MB de ellos para x86. Un `ndk.abiFilters` propio no sirve: el plugin
+ * de Gradle de React Native añade los suyos (las cuatro) y se suman. Se fija la propiedad que lee ese plugin.
  */
-const { withAppBuildGradle } = require("expo/config-plugins");
+const { withGradleProperties } = require("expo/config-plugins");
 
-const MARCA = "// minetoy:abis";
+const CLAVE = "reactNativeArchitectures";
+const VALOR = "arm64-v8a,armeabi-v7a";
 
 module.exports = function abisAndroid(config) {
-  return withAppBuildGradle(config, (c) => {
-    let gradle = c.modResults.contents;
-    if (gradle.includes(MARCA)) return c;
-    const defecto = /defaultConfig\s*\{/;
-    if (!defecto.test(gradle)) throw new Error("abis-android: no encuentro defaultConfig en app/build.gradle");
-    gradle = gradle.replace(defecto, (m) => `${m}\n        ndk { abiFilters "arm64-v8a", "armeabi-v7a" } ${MARCA}`);
-    c.modResults.contents = gradle;
+  return withGradleProperties(config, (c) => {
+    c.modResults = c.modResults.filter((p) => !(p.type === "property" && p.key === CLAVE));
+    c.modResults.push({ type: "property", key: CLAVE, value: VALOR });
     return c;
   });
 };
