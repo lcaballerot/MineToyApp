@@ -1,6 +1,8 @@
 import { LinearGradient } from "expo-linear-gradient";
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState, type ComponentType, type Ref } from "react";
-import { ActivityIndicator, Animated, Linking, StyleSheet, View } from "react-native";
+import { getLocales } from "expo-localization";
+import { RefreshCw, WifiOff } from "lucide-react-native";
+import { ActivityIndicator, Animated, Linking, StyleSheet, Text, View } from "react-native";
 import { WebView as WebViewClase, type WebViewNavigation, type WebViewProps } from "react-native-webview";
 
 // Con los tipos de React 19.3 las props de la clase WebView se resuelven a `never` (fallo de tipos de la librería, no de
@@ -9,7 +11,8 @@ type WebView = WebViewClase;
 const WebView = WebViewClase as unknown as ComponentType<WebViewProps & { ref?: Ref<WebView> }>;
 
 import { version } from "../../package.json";
-import { colores } from "../tema";
+import { blanco, colores, fuentes } from "../tema";
+import { Boton, Mosaico } from "../ui/piezas";
 
 /** Dominios de MineToy que se abren dentro de la app. Cualquier otro (pasarelas de pago incluidas) va al navegador. */
 const DENTRO = new Set(["store.minetoy.fun", "vote.minetoy.fun", "minetoy.fun", "www.minetoy.fun"]);
@@ -22,7 +25,21 @@ const AGENTE = `MineToyApp/${version}`;
  * Modo app de la web: `data-app` en <html> antes de pintar, en cada carga de página. La web lo usa en su CSS
  * (`web/src/app/globals.css`, `html[data-app]`) para quitar el pie, que aquí sobra con la barra de pestañas.
  */
-const MODO_APP = `document.documentElement.setAttribute("data-app", ${JSON.stringify(version)}); true;`;
+const MODO_APP = `(function () {
+  var v = ${JSON.stringify(version)};
+  function poner() { if (document.documentElement) { document.documentElement.setAttribute("data-app", v); return true; } return false; }
+  if (!poner()) { var o = new MutationObserver(function () { if (poner()) o.disconnect(); }); o.observe(document, { childList: true }); }
+})(); true;`;
+/** Toque en la pestaña activa: arriba del todo; si ya está arriba, a la portada de la pestaña (sin rehacer el WebView). */
+const arribaOPortada = (url: string) => `(function () {
+  if (window.scrollY > 0) window.scrollTo({ top: 0, behavior: "smooth" });
+  else if (location.href !== ${JSON.stringify(url)}) location.href = ${JSON.stringify(url)};
+})(); true;`;
+
+const en = getLocales()[0]?.languageCode === "en";
+const T = en
+  ? { errorT: "Can't load this page", errorP: "Check your internet connection and try again.", reintentar: "Try again" }
+  : { errorT: "No se pudo cargar la página", errorP: "Revisa tu conexión a internet y vuelve a intentarlo.", reintentar: "Reintentar" };
 
 export interface ControlWeb {
   /** Atrás dentro de la web; false si ya está en la primera página. */
@@ -49,8 +66,7 @@ const PestanaWeb = forwardRef<ControlWeb, Props>(function PestanaWeb({ url, alAb
       return true;
     },
     inicio() {
-      // Volver a la portada de la pestaña: se rehace el WebView con la URL inicial.
-      setClave((k) => k + 1);
+      web.current?.injectJavaScript(arribaOPortada(url));
     },
   }));
 
@@ -86,6 +102,9 @@ const PestanaWeb = forwardRef<ControlWeb, Props>(function PestanaWeb({ url, alAb
         style={e.web}
         containerStyle={e.web}
         applicationNameForUserAgent={AGENTE}
+        // Ya está dentro del área segura (App): sin márgenes automáticos de iOS que la empujen otra vez.
+        contentInsetAdjustmentBehavior="never"
+        automaticallyAdjustContentInsets={false}
         injectedJavaScriptBeforeContentLoaded={MODO_APP}
         onShouldStartLoadWithRequest={decidir}
         onNavigationStateChange={(n) => {
@@ -94,6 +113,17 @@ const PestanaWeb = forwardRef<ControlWeb, Props>(function PestanaWeb({ url, alAb
         onLoadStart={() => setProgreso(0.05)}
         onLoadProgress={(ev) => setProgreso(ev.nativeEvent.progress)}
         onLoadEnd={() => setProgreso(1)}
+        // El sistema puede matar el proceso de la web con poca memoria (Bedrock abierto): se rehace en vez de quedar en blanco.
+        onContentProcessDidTerminate={() => setClave((k) => k + 1)}
+        onRenderProcessGone={() => setClave((k) => k + 1)}
+        renderError={() => (
+          <View style={e.error}>
+            <Mosaico Icono={WifiOff} />
+            <Text style={e.errorT}>{T.errorT}</Text>
+            <Text style={e.errorP}>{T.errorP}</Text>
+            <Boton texto={T.reintentar} Icono={RefreshCw} variante="primary" onPress={() => setClave((k) => k + 1)} style={e.errorBoton} />
+          </View>
+        )}
         // Enlaces target=_blank: en la misma vista, pasando por `decidir`.
         setSupportMultipleWindows={false}
         allowsBackForwardNavigationGestures
@@ -153,6 +183,18 @@ function BarraCarga({ progreso }: { progreso: number }) {
 
 const e = StyleSheet.create({
   web: { flex: 1, backgroundColor: colores.fondo },
+  error: { ...StyleSheet.absoluteFill, alignItems: "center", justifyContent: "center", padding: 24, backgroundColor: colores.fondo },
+  errorT: {
+    fontFamily: fuentes.titular,
+    fontSize: 26,
+    lineHeight: 28,
+    letterSpacing: -0.9,
+    color: "#ffffff",
+    textAlign: "center",
+    marginTop: 16,
+  },
+  errorP: { fontFamily: fuentes.texto, fontSize: 15, lineHeight: 23, color: blanco(0.6), textAlign: "center", marginTop: 8, maxWidth: 360 },
+  errorBoton: { width: "100%", maxWidth: 360, marginTop: 24 },
   cargando: {
     ...StyleSheet.absoluteFill,
     alignItems: "center",

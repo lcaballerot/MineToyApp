@@ -114,7 +114,8 @@ export default function PantallaVoz({ visible }: { visible: boolean }) {
               <Text style={e.ajustesDesc}>{L.ajustesDesc}</Text>
             </View>
           </View>
-          <View style={{ marginTop: 20 }}>
+          <View style={{ marginTop: 20, gap: 20 }}>
+            <Deslizador etiqueta={L.volMic} valor={s.volMic} alCambiar={motor.ponerVolMic} />
             <Deslizador etiqueta={L.volCascos} valor={s.volCascos} alCambiar={motor.ponerVolCascos} />
           </View>
           <Boton texto={L.colgar} Icono={PhoneOff} variante="ghost" onPress={motor.colgar} style={{ marginTop: 20 }} />
@@ -350,7 +351,8 @@ function Escaner({ alLeer, alCancelar }: { alLeer: (texto: string) => void; alCa
 const ESQUINA = 26;
 const e = StyleSheet.create({
   raiz: { flex: 1, backgroundColor: colores.fondo },
-  contenido: { paddingHorizontal: 16, paddingBottom: 32 },
+  // En iPad no se estira a todo el ancho: columna central como en la web (max-w-3xl).
+  contenido: { paddingHorizontal: 16, paddingBottom: 32, width: "100%", maxWidth: 600, alignSelf: "center" },
   intro: {
     paddingTop: 28,
     paddingBottom: 24,

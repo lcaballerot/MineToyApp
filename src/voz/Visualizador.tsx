@@ -60,6 +60,7 @@ export default function Visualizador({ motor, mic, activo }: { motor: MotorVoz; 
 
   useEffect(() => {
     if (!activo) return;
+    const dejarDeMedir = motor.observarNivel();
     const alturas = new Array<number>(BARRAS).fill(0);
     let nivel = 0;
     let hastaVoz = 0;
@@ -67,8 +68,8 @@ export default function Visualizador({ motor, mic, activo }: { motor: MotorVoz; 
     let raf = 0;
     const dibujar = (ahora: number) => {
       raf = requestAnimationFrame(dibujar);
-      // ~30 cuadros/s (5/s con «reducir movimiento»): sobra para la voz y no carga el hilo de JS.
-      if (ahora - ultimo < (reducido ? 200 : 33)) return;
+      // ~20 cuadros/s (5/s con «reducir movimiento»): sobra para la voz y no carga el hilo de JS.
+      if (ahora - ultimo < (reducido ? 200 : 50)) return;
       ultimo = ahora;
       const n = mic ? Math.min(1, (motor.nivel() ?? 0) * 3) : 0;
       nivel = Math.max(n, nivel * 0.9);
@@ -89,7 +90,10 @@ export default function Visualizador({ motor, mic, activo }: { motor: MotorVoz; 
       });
     };
     raf = requestAnimationFrame(dibujar);
-    return () => cancelAnimationFrame(raf);
+    return () => {
+      cancelAnimationFrame(raf);
+      dejarDeMedir();
+    };
   }, [activo, mic, motor, reducido]);
 
   const { ahora, nivel, alturas, hablando } = cuadro;

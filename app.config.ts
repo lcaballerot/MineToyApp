@@ -23,6 +23,8 @@ const config: ExpoConfig = {
     bundleIdentifier: ID,
     buildNumber: String(numeroCompilacion(version)),
     supportsTablet: true,
+    // Solo vertical: en iPad, a pantalla completa (sin Split View, que exige todas las orientaciones).
+    requireFullScreen: true,
     infoPlist: {
       // Audio en segundo plano: la voz sigue con Minecraft delante. Sin `voip` (no se usa CallKit; ADR-0001).
       UIBackgroundModes: ["audio"],

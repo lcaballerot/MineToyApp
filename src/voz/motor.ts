@@ -6,6 +6,8 @@
  *   la web si no se le da otro).
  * - Sin Web Audio: cada voz suena con un volumen según la distancia (`_setVolume`, 0–10) y sin izquierda/derecha; el
  *   visualizador usa el nivel del micrófono de `getStats()`. Ver ADR-0001, desviación 2.
+ * - Volumen del micrófono: libwebrtc no deja tocar la ganancia antes de enviar, así que se manda al servidor
+ *   (`volmic`) y lo aplica cada oyente (quinto valor de `p`). Por lo mismo, aquí se aplica el de los demás.
  * - Sigue viva en segundo plano: servicio en primer plano en Android, sesión de audio mezclable en iOS.
  */
 import NetInfo from "@react-native-community/netinfo";
@@ -36,6 +38,7 @@ export interface InstantaneaVoz {
   mic: boolean;
   cascos: boolean;
   modo: ModoVoz;
+  volMic: number;
   volCascos: number;
   errorVincular: ErrorVincular;
   vinculando: boolean;
@@ -55,10 +58,13 @@ interface Voz {
   r: number;
   /** Ganancia por distancia (0–1), antes del volumen de los cascos. */
   g: number;
+  /** Volumen del micro del hablante (0–2): 1 salvo si habla desde la app. */
+  vm: number;
 }
 
 const CLAVE_TOKEN = "voz.token";
 const CLAVE_CASCOS = "voz.volCascos";
+const CLAVE_MIC = "voz.volMic";
 const B64 = /^[A-Za-z0-9_-]{43}$/;
 const CODIGO = /^[23456789ABCDEFGHJKMNPQRSTUVWXYZ]{6}$/;
 
@@ -88,7 +94,10 @@ const limitar = (v: unknown, a: number, b: number, def: number) =>
   typeof v === "number" && Number.isFinite(v) ? Math.min(b, Math.max(a, v)) : def;
 
 function modeloSeguro(): string | undefined {
-  const m = (Device.modelName ?? "").replace(/[^\w .,()+-]/g, "").slice(0, 64).trim();
+  const m = (Device.modelName ?? "")
+    .replace(/[^\w .,()+-]/g, "")
+    .slice(0, 64)
+    .trim();
   return m || undefined;
 }
 
@@ -101,9 +110,12 @@ export interface MotorVoz {
   vincular(texto: string): Promise<void>;
   colgar(): void;
   reconectar(): void;
+  ponerVolMic(v: number): void;
   ponerVolCascos(v: number): void;
   /** Nivel de tu voz (0–1) para el visualizador; null si no hay micrófono. */
   nivel(): number | null;
+  /** Mide el nivel (getStats a ~6 Hz) solo mientras alguien lo mira: no gasta batería con la pestaña oculta o jugando. */
+  observarNivel(): () => void;
 }
 
 export function crearMotor(textos: () => TextosServicio): MotorVoz {
@@ -113,7 +125,12 @@ export function crearMotor(textos: () => TextosServicio): MotorVoz {
   let caducada = false;
   let jugando = false;
   let estado = { mic: true, cascos: true, modo: "normal" as ModoVoz };
+  let volMic = 100;
   let volCascos = 100;
+  let enviarVolMic: ReturnType<typeof setTimeout> | null = null;
+  let guardarVols: ReturnType<typeof setTimeout> | null = null;
+  let observadoresNivel = 0;
+  let midiendo = false;
   let errorVincular: ErrorVincular = null;
   let vinculando = false;
 
@@ -139,7 +156,17 @@ export function crearMotor(textos: () => TextosServicio): MotorVoz {
   let cache: InstantaneaVoz | null = null;
   const instantanea = (): InstantaneaVoz => {
     const n: InstantaneaVoz = {
-      vista, fase, caducada, jugando, mic: estado.mic, cascos: estado.cascos, modo: estado.modo, volCascos, errorVincular, vinculando,
+      vista,
+      fase,
+      caducada,
+      jugando,
+      mic: estado.mic,
+      cascos: estado.cascos,
+      modo: estado.modo,
+      volMic,
+      volCascos,
+      errorVincular,
+      vinculando,
     };
     if (cache && (Object.keys(n) as (keyof InstantaneaVoz)[]).every((k) => cache![k] === n[k])) return cache;
     cache = n;
@@ -349,8 +376,8 @@ export function crearMotor(textos: () => TextosServicio): MotorVoz {
 
   function aplicarVolumen(v: Voz) {
     try {
-      // 0–10 en react-native-webrtc: distancia (0–1) × cascos (0–2).
-      (v.consumer.track as unknown as MediaStreamTrack)._setVolume(v.g * (volCascos / 100));
+      // 0–10 en react-native-webrtc: distancia (0–1) × micro del hablante (0–2) × cascos (0–2).
+      (v.consumer.track as unknown as MediaStreamTrack)._setVolume(v.g * v.vm * (volCascos / 100));
     } catch {
       /* pista ya cerrada */
     }
@@ -366,7 +393,7 @@ export function crearMotor(textos: () => TextosServicio): MotorVoz {
         rtpParameters: m.rtp as never,
       });
       // Hasta la primera pose, en silencio: evita un golpe de volumen al montar.
-      const v: Voz = { consumer, r: Number(m.r) || 12, g: 0 };
+      const v: Voz = { consumer, r: Number(m.r) || 12, g: 0, vm: 1 };
       voces.set(String(m.id), v);
       aplicarVolumen(v);
       enviar({ t: "listo", id: m.id });
@@ -389,13 +416,15 @@ export function crearMotor(textos: () => TextosServicio): MotorVoz {
   /** Posiciones relativas a 10 Hz (el servidor ya las manda giradas a la vista del oyente). */
   function aplicarPoses(m: { o?: Record<string, number[]> }) {
     if (!m.o) return;
-    for (const [id, [x, y, z, r]] of Object.entries(m.o)) {
+    for (const [id, [x, y, z, r, vm]] of Object.entries(m.o)) {
       const v = voces.get(id);
       if (!v) continue;
       v.r = r;
       const g = gananciaDistancia(x, y, z, r);
-      if (Math.abs(g - v.g) < 0.01) continue;
+      const micHablante = Number.isFinite(vm) ? limitar(vm, 0, 200, 100) / 100 : 1;
+      if (Math.abs(g - v.g) < 0.01 && micHablante === v.vm) continue;
       v.g = g;
+      v.vm = micHablante;
       aplicarVolumen(v);
     }
   }
@@ -414,6 +443,15 @@ export function crearMotor(textos: () => TextosServicio): MotorVoz {
 
   /** Nivel del micrófono para el visualizador (WebRTC lo mide; aquí no hay AnalyserNode). */
   async function medirNivel() {
+    if (midiendo) return; // getStats lento: no se encolan
+    midiendo = true;
+    try {
+      await medirNivelUnaVez();
+    } finally {
+      midiendo = false;
+    }
+  }
+  async function medirNivelUnaVez() {
     if (!productor || productor.closed) {
       nivelMic = 0;
       return;
@@ -457,6 +495,7 @@ export function crearMotor(textos: () => TextosServicio): MotorVoz {
     const sock = r.ws;
     const ini = r.ini;
     if (ini.estado && typeof ini.estado === "object") aplicarEstado({ ...(ini.estado as object), t: "estado" });
+    if (volMic !== 100) enviar({ t: "volmic", v: volMic });
     let falloMic = false;
     try {
       if (!ini.rtp) throw new Error("sin SFU");
@@ -569,11 +608,27 @@ export function crearMotor(textos: () => TextosServicio): MotorVoz {
     if (!ws && !conectando) reconectar();
   }
 
+  /** Volumen guardado (0–200); 100 si no hay (`Number(null)` sería 0 y empezaría en silencio). */
+  async function leerVolumen(clave: string): Promise<number> {
+    const crudo = await SecureStore.getItemAsync(clave).catch(() => null);
+    return crudo == null || crudo === "" ? 100 : limitar(Number(crudo), 0, 200, 100);
+  }
+  /** Al Keychain/Keystore como mucho cada 400 ms mientras se arrastra un deslizador. */
+  function guardarVolumenes() {
+    if (guardarVols) clearTimeout(guardarVols);
+    guardarVols = setTimeout(() => {
+      guardarVols = null;
+      void SecureStore.setItemAsync(CLAVE_MIC, String(volMic)).catch(() => {});
+      void SecureStore.setItemAsync(CLAVE_CASCOS, String(volCascos)).catch(() => {});
+    }, 400);
+  }
+
   /* ------------------------------------------------------------ API */
   return {
     async arrancar() {
       muerto = false;
-      volCascos = limitar(Number(await SecureStore.getItemAsync(CLAVE_CASCOS).catch(() => null)), 0, 200, 100);
+      volCascos = await leerVolumen(CLAVE_CASCOS);
+      volMic = await leerVolumen(CLAVE_MIC);
       token = await SecureStore.getItemAsync(CLAVE_TOKEN).catch(() => null);
       if (token && !B64.test(token)) await olvidarToken();
       bajas.push(nativo.alColgar(() => colgar()).remove);
@@ -581,7 +636,6 @@ export function crearMotor(textos: () => TextosServicio): MotorVoz {
       bajas.push(NetInfo.addEventListener((e) => e.isConnected && despertar()));
       const sub = AppState.addEventListener("change", (s) => s === "active" && despertar());
       bajas.push(() => sub.remove());
-      sondeo = setInterval(() => void medirNivel(), 100);
       if (token) void conectar();
       else ponerVista("vincular");
     },
@@ -589,6 +643,8 @@ export function crearMotor(textos: () => TextosServicio): MotorVoz {
       muerto = true;
       if (temporizador) clearTimeout(temporizador);
       if (sondeo) clearInterval(sondeo);
+      if (enviarVolMic) clearTimeout(enviarVolMic);
+      if (guardarVols) clearTimeout(guardarVols);
       bajas.splice(0).forEach((f) => f());
       const s = ws;
       ws = null;
@@ -610,14 +666,36 @@ export function crearMotor(textos: () => TextosServicio): MotorVoz {
     vincular,
     colgar,
     reconectar,
+    ponerVolMic(v) {
+      volMic = limitar(v, 0, 200, 100);
+      guardarVolumenes();
+      // Mientras se arrastra, como mucho un mensaje cada 150 ms (el servidor corta a 50 frames/s).
+      if (!enviarVolMic) {
+        enviarVolMic = setTimeout(() => {
+          enviarVolMic = null;
+          enviar({ t: "volmic", v: volMic });
+        }, 150);
+      }
+      avisar();
+    },
     ponerVolCascos(v) {
       volCascos = limitar(v, 0, 200, 100);
-      void SecureStore.setItemAsync(CLAVE_CASCOS, String(volCascos)).catch(() => {});
+      guardarVolumenes();
       for (const voz of voces.values()) aplicarVolumen(voz);
       avisar();
     },
     nivel() {
       return productor && !productor.closed ? nivelMic : null;
+    },
+    observarNivel() {
+      if (++observadoresNivel === 1 && !sondeo) sondeo = setInterval(() => void medirNivel(), 160);
+      return () => {
+        if (--observadoresNivel === 0 && sondeo) {
+          clearInterval(sondeo);
+          sondeo = null;
+          nivelMic = 0;
+        }
+      };
     },
   };
 }

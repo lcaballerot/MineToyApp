@@ -1,5 +1,33 @@
 # Historial de versiones · Version history
 
+## 0.5.0 — sin publicar · unreleased
+
+| | |
+|---|---|
+| Android | APK firmado (prerelease `android-pruebas`) · signed APK |
+| iOS | IPA sin firma para Sideloadly (prerelease `ios-pruebas`) · unsigned IPA for Sideloadly |
+| Verificado · Verified | pendiente · pending |
+
+**🇪🇸**
+- Volumen del micrófono (0–200 %) como en la web. Lo aplican los que te oyen: necesita la versión nueva de voz-control.
+- Nada bajo la barra de estado ni la isla dinámica (las pestañas ignoraban el área segura de arriba).
+- Cambio de pestaña sin fogonazo oscuro (fundido por encima) y Votar/Ranking precargadas.
+- Tocar la pestaña activa sube arriba (y luego a la portada) en vez de recargar.
+- Pantalla de error propia con «Reintentar»; si el sistema mata la web, se rehace.
+- Arreglado: en una instalación nueva los volúmenes empezaban en 0 %.
+- Menos batería: el nivel del micro solo se mide con la pestaña de voz a la vista; guardado de volúmenes agrupado.
+- iPad: columna central y pantalla completa. El teclado ya no deja la barra encima en Android.
+
+**🇬🇧**
+- Microphone volume (0–200 %) like on the website. Applied by whoever hears you: needs the new voz-control.
+- Nothing under the status bar or Dynamic Island (tabs ignored the top safe area).
+- Tab switching without a dark flash (cross-fade on top) and Vote/Ranking preloaded.
+- Tapping the active tab scrolls to the top (then to its home page) instead of reloading.
+- Own error screen with "Try again"; if the system kills the web view, it is rebuilt.
+- Fixed: on a fresh install the volumes started at 0 %.
+- Less battery: mic level is only measured while the voice tab is visible; volume saves are batched.
+- iPad: centred column and full screen. On Android the keyboard no longer pushes the tab bar up.
+
 ## 0.4.0 — sin publicar · unreleased
 
 | | |

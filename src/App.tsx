@@ -11,8 +11,8 @@ import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { AudioLines, ShoppingBag, Trophy, Vote, type LucideIcon } from "lucide-react-native";
 import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
-import { Animated, BackHandler, Linking, Pressable, StyleSheet, Text, View } from "react-native";
-import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { Animated, AppState, BackHandler, Keyboard, Linking, Platform, Pressable, StyleSheet, Text, View } from "react-native";
+import { SafeAreaProvider, initialWindowMetrics, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { blanco, colores, fuentes } from "./tema";
 import { alfa } from "./ui/piezas";
@@ -60,7 +60,7 @@ export default function App() {
   }, [listo]);
   if (!listo) return null;
   return (
-    <SafeAreaProvider>
+    <SafeAreaProvider initialMetrics={initialWindowMetrics}>
       <Raiz />
       <StatusBar style="light" />
     </SafeAreaProvider>
@@ -69,11 +69,31 @@ export default function App() {
 
 function Raiz() {
   const [activa, setActiva] = useState<Id>("tienda");
-  // Cada pestaña se monta la primera vez que se abre y luego se queda viva (conserva la página y la sesión).
+  // Las pestañas se quedan vivas (conservan la página y la sesión). La tienda se monta al abrir y las otras dos webs
+  // poco después, en segundo plano, para que al cambiar ya estén cargadas. La voz, al abrirla (pide el micrófono).
   const [montadas, setMontadas] = useState<Set<Id>>(() => new Set<Id>(["tienda"]));
   const webs = useRef<Partial<Record<Id, ControlWeb | null>>>({});
+  const { top } = useSafeAreaInsets();
+
+  const [primerPlano, setPrimerPlano] = useState(AppState.currentState === "active");
+  const [teclado, setTeclado] = useState(false);
+
+  useEffect(() => {
+    const t = setTimeout(() => setMontadas((m) => new Set([...m, "votar", "ranking"])), 1500);
+    const app = AppState.addEventListener("change", (s) => setPrimerPlano(s === "active"));
+    // En Android la ventana se encoge con el teclado (adjustResize) y la barra subiría encima de él: se esconde.
+    const ver = Keyboard.addListener("keyboardDidShow", () => Platform.OS === "android" && setTeclado(true));
+    const quitar = Keyboard.addListener("keyboardDidHide", () => setTeclado(false));
+    return () => {
+      clearTimeout(t);
+      app.remove();
+      ver.remove();
+      quitar.remove();
+    };
+  }, []);
 
   function ir(id: Id) {
+    Keyboard.dismiss();
     if (id !== activa) void Haptics.selectionAsync().catch(() => {});
     else if (id !== "voz") webs.current[id]?.inicio();
     setActiva(id);
@@ -104,21 +124,51 @@ function Raiz() {
 
   return (
     <View style={e.raiz}>
-      <SafeAreaView style={e.contenido} edges={["top"]}>
+      {/* Un margen, no padding: las capas son absolutas y en Yoga ignoran el padding del padre (quedaban bajo la isla). */}
+      <View style={[e.contenido, { marginTop: top }]}>
         {PESTANAS.map((p) =>
           montadas.has(p.id) ? (
-            <View key={p.id} style={[e.capa, p.id !== activa && e.oculta]}>
+            <Capa key={p.id} activa={p.id === activa}>
               {p.url ? (
                 <PestanaWeb ref={(r) => void (webs.current[p.id] = r)} url={p.url} alAbrirVoz={abrirVoz} />
               ) : (
-                <PantallaVoz visible={activa === "voz"} />
+                <PantallaVoz visible={activa === "voz" && primerPlano} />
               )}
-            </View>
+            </Capa>
           ) : null,
         )}
-      </SafeAreaView>
-      <Barra activa={activa} ir={ir} vozMontada={montadas.has("voz")} />
+      </View>
+      {!teclado && <Barra activa={activa} ir={ir} vozMontada={montadas.has("voz")} />}
     </View>
+  );
+}
+
+const FUNDIDO = 160;
+
+/**
+ * Una pestaña: todas siguen pintadas una encima de otra. Con `display: none` el sistema rehace el WebView al volver a
+ * mostrarlo y se veía un fogonazo oscuro. La que entra se funde por encima; la que sale sigue opaca debajo hasta que
+ * termina el fundido (si bajaran las dos a la vez, a mitad se vería el fondo oscuro).
+ */
+function Capa({ activa, children }: { activa: boolean; children: ReactNode }) {
+  const opacidad = useRef(new Animated.Value(activa ? 1 : 0)).current;
+  useEffect(() => {
+    if (activa) {
+      Animated.timing(opacidad, { toValue: 1, duration: FUNDIDO, useNativeDriver: true }).start();
+      return;
+    }
+    const t = setTimeout(() => opacidad.setValue(0), FUNDIDO + 20);
+    return () => clearTimeout(t);
+  }, [activa, opacidad]);
+  return (
+    <Animated.View
+      style={[e.capa, { opacity: opacidad, zIndex: activa ? 1 : 0 }]}
+      pointerEvents={activa ? "auto" : "none"}
+      accessibilityElementsHidden={!activa}
+      importantForAccessibility={activa ? "auto" : "no-hide-descendants"}
+    >
+      {children}
+    </Animated.View>
   );
 }
 
@@ -199,7 +249,7 @@ function BotonPestana({
         <Icono size={22} strokeWidth={activa ? 2.1 : 1.8} color={activa ? colores.portal200 : blanco(0.45)} />
         {children}
       </View>
-      <Text style={[e.nombre, activa && e.nombreActivo]} numberOfLines={1}>
+      <Text style={[e.nombre, activa && e.nombreActivo]} numberOfLines={1} adjustsFontSizeToFit maxFontSizeMultiplier={1.3}>
         {p.nombre}
       </Text>
     </Pressable>
@@ -225,9 +275,8 @@ function PuntoVoz() {
 
 const e = StyleSheet.create({
   raiz: { flex: 1, backgroundColor: colores.fondo },
-  contenido: { flex: 1 },
+  contenido: { flex: 1, overflow: "hidden" },
   capa: { ...StyleSheet.absoluteFill },
-  oculta: { display: "none" },
   barra: {
     flexDirection: "row",
     paddingTop: 8,

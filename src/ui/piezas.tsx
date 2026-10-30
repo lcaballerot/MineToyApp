@@ -312,7 +312,8 @@ export function Deslizador({
         style={e.deslizadorZona}
         onStartShouldSetResponder={() => true}
         onMoveShouldSetResponder={() => true}
-        onResponderTerminationRequest={() => false}
+        // Un gesto vertical que empiece aquí lo puede tomar el ScrollView de la pantalla.
+        onResponderTerminationRequest={() => true}
         onResponderGrant={(ev) => {
           medir();
           setArrastrando(true);
@@ -409,7 +410,7 @@ const e = StyleSheet.create({
     color: "#ffffff",
     fontVariant: ["tabular-nums"],
   },
-  deslizadorZona: { height: 40, justifyContent: "center", marginTop: 4 },
+  deslizadorZona: { height: 44, justifyContent: "center", marginTop: 2 },
   pista: {
     height: 8,
     borderRadius: 999,
@@ -418,7 +419,7 @@ const e = StyleSheet.create({
   },
   pomoSitio: {
     position: "absolute",
-    top: 9,
+    top: 11,
     width: 22,
     height: 22,
     marginLeft: -11,
