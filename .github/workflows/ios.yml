@@ -47,7 +47,21 @@ jobs:
           set -o pipefail
           xcodebuild -workspace MineToy.xcworkspace -scheme MineToy -configuration Release \
             -sdk iphonesimulator -destination "generic/platform=iOS Simulator" \
-            -derivedDataPath build CODE_SIGNING_ALLOWED=NO build | tail -n 40
+            -derivedDataPath build CODE_SIGNING_ALLOWED=NO build > "$RUNNER_TEMP/xcodebuild.log" 2>&1 || {
+              # Los errores de verdad (y la salida de los scripts de fase) quedan lejos del final: se sacan aquí.
+              grep -nE "error:|Error:|ERROR|fatal|Command PhaseScriptExecution failed" "$RUNNER_TEMP/xcodebuild.log" | head -60
+              grep -n -A40 "Build ExpoModulesJSI" "$RUNNER_TEMP/xcodebuild.log" | grep -vE "^\S+-\s+export " | head -80
+              exit 1
+            }
+          tail -n 5 "$RUNNER_TEMP/xcodebuild.log"
+
+      - name: Log de xcodebuild
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xcodebuild-log
+          path: ${{ runner.temp }}/xcodebuild.log
+          retention-days: 7
 
       - name: Empaquetar la app del simulador
         run: |
