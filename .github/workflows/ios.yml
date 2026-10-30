@@ -15,8 +15,9 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # Sin cuenta de Apple Developer: compilación para el simulador, sin firma. Demuestra que compila.
-  simulador:
+  # Sin cuenta de Apple Developer: compilación para iPhone SIN FIRMA. El IPA se instala con Sideloadly (que lo firma con
+  # el Apple ID del usuario, 7 días) y se publica en la prerelease «ios-pruebas». Con la cuenta, aquí irá la firma real.
+  iphone:
     runs-on: macos-26
     timeout-minutes: 90
     steps:
@@ -41,13 +42,13 @@ jobs:
         working-directory: ios
         run: pod install
 
-      - name: Compilar para el simulador
+      - name: Compilar para iPhone (sin firma)
         working-directory: ios
         run: |
           set -o pipefail
           xcodebuild -workspace MineToy.xcworkspace -scheme MineToy -configuration Release \
-            -sdk iphonesimulator -destination "generic/platform=iOS Simulator" \
-            -derivedDataPath build CODE_SIGNING_ALLOWED=NO build > "$RUNNER_TEMP/xcodebuild.log" 2>&1 || {
+            -sdk iphoneos -destination "generic/platform=iOS" -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" build > "$RUNNER_TEMP/xcodebuild.log" 2>&1 || {
               # Los errores de verdad (y la salida de los scripts de fase) quedan lejos del final: se sacan aquí.
               grep -nE "error:|Error:|ERROR|fatal|Command PhaseScriptExecution failed" "$RUNNER_TEMP/xcodebuild.log" | head -60
               grep -n -A40 "Build ExpoModulesJSI" "$RUNNER_TEMP/xcodebuild.log" | grep -vE "^\S+-\s+export " | head -80
@@ -64,19 +65,39 @@ jobs:
           retention-days: 7
         continue-on-error: true # la cuota de artefactos es de toda la cuenta
 
-      # La app del simulador no se sube: sin Mac nadie la puede abrir y gasta la cuota de artefactos de la cuenta.
-      - name: La app del simulador existe
-        run: ls -d ios/build/Build/Products/Release-iphonesimulator/MineToy.app
+      - name: Empaquetar el IPA sin firma
+        run: |
+          v="$(node -p "require('./package.json').version")"
+          mkdir -p salida/Payload
+          cp -R ios/build/Build/Products/Release-iphoneos/MineToy.app salida/Payload/
+          (cd salida && zip -qry "MineToy-$v-sin-firma.ipa" Payload && rm -rf Payload && shasum -a 256 *.ipa > SHA256SUMS.txt && cat SHA256SUMS.txt)
+
+      # Prerelease que se rehace en cada push a main (la etiqueta apunta siempre al último commit). Las Releases no cuentan
+      # en la cuota de artefactos de la cuenta.
+      - name: Publicar en la prerelease ios-pruebas
+        if: github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete ios-pruebas --yes --cleanup-tag 2>/dev/null || true
+          {
+            echo "IPA **sin firma** para instalar con Sideloadly (Apple ID gratuito: caduca a los 7 días)."
+            echo
+            echo "Commit \`${GITHUB_SHA::7}\`, $(date -u '+%Y-%m-%d %H:%M UTC')."
+            echo
+            echo "Unsigned IPA to install with Sideloadly (free Apple ID: expires after 7 days)."
+          } > notas.md
+          gh release create ios-pruebas salida/* --prerelease --target "$GITHUB_SHA" --title "iOS de pruebas (sin firma)" --notes-file notas.md
 
   insignia:
-    needs: simulador
-    if: always() && needs.simulador.result != 'cancelled' && github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: iphone
+    if: always() && needs.iphone.result != 'cancelled' && github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v5
       - name: Insignia de compilación
         run: |
-          if [ "${{ needs.simulador.result }}" = success ]; then es=correcta; en=passing; color=6eff4a; else es=fallida; en=failing; color=c93434; fi
+          if [ "${{ needs.iphone.result }}" = success ]; then es=correcta; en=passing; color=6eff4a; else es=fallida; en=failing; color=c93434; fi
           mkdir -p .github/badges
           base="https://img.shields.io/badge"
           curl -sfL --retry 4 --retry-all-errors --retry-delay 5 "$base/compilaci%C3%B3n%20ios-$es-$color?style=for-the-badge&logo=githubactions&logoColor=white" -o .github/badges/compilacion-ios.svg
