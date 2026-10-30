@@ -1,6 +1,6 @@
 {
   "name": "minetoy-app",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "main": "index.ts",
   "scripts": {
@@ -12,13 +12,21 @@
     "nativo:ios": "expo prebuild --platform ios --clean"
   },
   "dependencies": {
+    "@config-plugins/react-native-webrtc": "15.0.2",
+    "@react-native-community/netinfo": "12.0.1",
+    "@react-native-community/slider": "5.2.1",
     "expo": "58.0.21",
+    "expo-camera": "58.0.14",
+    "expo-device": "58.0.5",
     "expo-localization": "58.0.5",
+    "expo-secure-store": "58.0.2",
     "expo-splash-screen": "58.0.12",
     "expo-status-bar": "58.0.4",
     "expo-system-ui": "58.0.7",
+    "mediasoup-client": "3.18.7",
     "react": "19.3.0",
-    "react-native": "0.88.1"
+    "react-native": "0.88.1",
+    "react-native-webrtc": "155.0.1"
   },
   "devDependencies": {
     "@types/react": "19.3.0",

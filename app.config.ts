@@ -23,6 +23,12 @@ const config: ExpoConfig = {
     bundleIdentifier: ID,
     buildNumber: String(numeroCompilacion(version)),
     supportsTablet: true,
+    infoPlist: {
+      // Audio en segundo plano: la voz sigue con Minecraft delante. Sin `voip` (no se usa CallKit; ADR-0001).
+      UIBackgroundModes: ["audio"],
+    },
+    // Universal Links del enlace de /vc. Necesita la cuenta de Apple Developer (con un Apple ID gratuito no se firman).
+    ...(process.env.MINETOY_APPLE_TEAM ? { associatedDomains: ["applinks:voicechat.minetoy.fun"] } : {}),
   },
   android: {
     package: ID,
@@ -34,9 +40,33 @@ const config: ExpoConfig = {
       monochromeImage: "./assets/android-icon-monochrome.png",
     },
     predictiveBackGestureEnabled: false,
+    // App Links verificados del enlace de /vc (assetlinks.json de voz-control con la huella del keystore).
+    intentFilters: [
+      {
+        action: "VIEW",
+        autoVerify: true,
+        data: [{ scheme: "https", host: "voicechat.minetoy.fun" }],
+        category: ["BROWSABLE", "DEFAULT"],
+      },
+    ],
   },
   plugins: [
     "expo-localization",
+    [
+      "@config-plugins/react-native-webrtc",
+      {
+        microphonePermission: "MineToy usa el micrófono para el chat de voz por proximidad del servidor.",
+        cameraPermission: "MineToy usa la cámara para escanear el código QR de /vc.",
+      },
+    ],
+    [
+      "expo-camera",
+      {
+        cameraPermission: "MineToy usa la cámara para escanear el código QR de /vc.",
+        microphonePermission: "MineToy usa el micrófono para el chat de voz por proximidad del servidor.",
+        recordAudioAndroid: true,
+      },
+    ],
     ["expo-splash-screen", { image: "./assets/splash-icon.png", imageWidth: 200, resizeMode: "contain", backgroundColor: FONDO }],
     "./plugins/firma-android.js",
   ],

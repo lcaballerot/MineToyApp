@@ -1,30 +1,25 @@
-import { getLocales } from "expo-localization";
 import { StatusBar } from "expo-status-bar";
-import { StyleSheet, Text, View } from "react-native";
+import { useEffect } from "react";
+import { Linking } from "react-native";
 
-import { colores } from "./tema";
+import PantallaVoz, { motorVoz } from "./voz/PantallaVoz";
+import { leerVinculo } from "./voz/motor";
 
-// Pantalla provisional del paso 3: solo demuestra que la app compila y arranca en las dos plataformas.
-const TEXTOS = {
-  es: { hola: "Hola", detalle: "La app de MineToy está en construcción." },
-  en: { hola: "Hello", detalle: "The MineToy app is under construction." },
-};
-
+// Paso 4: la app solo tiene la voz. La web (tienda, votos…) entra en el paso 5 con pestañas.
 export default function App() {
-  const t = getLocales()[0]?.languageCode === "en" ? TEXTOS.en : TEXTOS.es;
+  useEffect(() => {
+    // Enlaces de /vc (voicechat.minetoy.fun/CODIGO) que abren la app: se vincula con ese código.
+    const abrir = (url: string | null | undefined) => {
+      if (url && leerVinculo(url)) void motorVoz().vincular(url);
+    };
+    void Linking.getInitialURL().then(abrir);
+    const sub = Linking.addEventListener("url", (e) => abrir(e.url));
+    return () => sub.remove();
+  }, []);
   return (
-    <View style={estilos.fondo}>
-      <Text style={estilos.marca}>MineToy</Text>
-      <Text style={estilos.hola}>{t.hola}</Text>
-      <Text style={estilos.detalle}>{t.detalle}</Text>
+    <>
+      <PantallaVoz />
       <StatusBar style="light" />
-    </View>
+    </>
   );
 }
-
-const estilos = StyleSheet.create({
-  fondo: { flex: 1, backgroundColor: colores.fondo, alignItems: "center", justifyContent: "center", padding: 24 },
-  marca: { color: colores.oro, fontSize: 40, fontWeight: "800", letterSpacing: 1 },
-  hola: { color: colores.lila, fontSize: 24, fontWeight: "600", marginTop: 12 },
-  detalle: { color: colores.texto, fontSize: 15, marginTop: 8, textAlign: "center" },
-});
