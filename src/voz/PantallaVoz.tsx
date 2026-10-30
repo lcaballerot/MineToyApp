@@ -187,7 +187,7 @@ function Visualizador({ motor, activo }: { motor: MotorVoz; activo: boolean }) {
 }
 
 const e = StyleSheet.create({
-  fondo: { flex: 1, backgroundColor: colores.fondo, paddingHorizontal: 20, paddingTop: 64 },
+  fondo: { flex: 1, backgroundColor: colores.fondo, paddingHorizontal: 20, paddingTop: 16 },
   titulo: { color: colores.oro, fontSize: 30, fontWeight: "800", marginBottom: 16 },
   bloque: { gap: 12 },
   subtitulo: { color: colores.lila, fontSize: 20, fontWeight: "700" },

@@ -1,6 +1,6 @@
 {
   "name": "minetoy-app",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "main": "index.ts",
   "scripts": {
@@ -26,7 +26,9 @@
     "mediasoup-client": "3.18.7",
     "react": "19.3.0",
     "react-native": "0.88.1",
-    "react-native-webrtc": "155.0.1"
+    "react-native-safe-area-context": "5.10.1",
+    "react-native-webrtc": "155.0.1",
+    "react-native-webview": "14.0.1"
   },
   "devDependencies": {
     "@types/react": "19.3.0",

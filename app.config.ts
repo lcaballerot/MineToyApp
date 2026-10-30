@@ -70,6 +70,7 @@ const config: ExpoConfig = {
     ["expo-splash-screen", { image: "./assets/splash-icon.png", imageWidth: 200, resizeMode: "contain", backgroundColor: FONDO }],
     "./plugins/firma-android.js",
     "./plugins/proguard-webrtc.js",
+    "./plugins/abis-android.js",
   ],
 };
 

@@ -1,5 +1,23 @@
 # Historial de versiones · Version history
 
+## 0.3.0 — sin publicar · unreleased
+
+| | |
+|---|---|
+| Android | APK firmado, solo arm64-v8a y armeabi-v7a (prerelease `android-pruebas`) · signed APK, arm64-v8a and armeabi-v7a only |
+| iOS | IPA sin firma para Sideloadly (prerelease `ios-pruebas`) · unsigned IPA for Sideloadly |
+| Verificado · Verified | pendiente · pending |
+
+**🇪🇸**
+- Pestañas Tienda · Votar · Ranking · Voz: la web de MineToy dentro de la app (solo sus dominios; el resto, pagos
+  incluidos, se abre en el navegador) y la voz nativa. Los enlaces de voicechat llevan a la pestaña de voz.
+- El APK solo lleva las arquitecturas de los teléfonos reales (antes 142 MB).
+
+**🇬🇧**
+- Store · Vote · Ranking · Voice tabs: the MineToy website inside the app (its domains only; everything else, payments
+  included, opens in the browser) and native voice. voicechat links go to the voice tab.
+- The APK only carries real phones' architectures (was 142 MB).
+
 ## 0.2.0 — sin publicar · unreleased
 
 | | |
