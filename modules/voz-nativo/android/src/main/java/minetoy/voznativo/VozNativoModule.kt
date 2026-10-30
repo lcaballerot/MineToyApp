@@ -16,17 +16,19 @@ class VozNativoModule : Module() {
     Function("configurarAudio") {}
 
     Function("iniciarServicio") { titulo: String, texto: String, colgar: String ->
-      val ctx = appContext.reactContext ?: return@Function
-      val intent = Intent(ctx, ServicioVoz::class.java)
-        .putExtra(ServicioVoz.TITULO, titulo)
-        .putExtra(ServicioVoz.TEXTO, texto)
-        .putExtra(ServicioVoz.COLGAR_TEXTO, colgar)
-      ContextCompat.startForegroundService(ctx, intent)
+      appContext.reactContext?.let { ctx ->
+        val intent = Intent(ctx, ServicioVoz::class.java)
+          .putExtra(ServicioVoz.TITULO, titulo)
+          .putExtra(ServicioVoz.TEXTO, texto)
+          .putExtra(ServicioVoz.COLGAR_TEXTO, colgar)
+        ContextCompat.startForegroundService(ctx, intent)
+      }
+      Unit
     }
 
     Function("pararServicio") {
-      val ctx = appContext.reactContext ?: return@Function
-      ctx.stopService(Intent(ctx, ServicioVoz::class.java))
+      appContext.reactContext?.let { ctx -> ctx.stopService(Intent(ctx, ServicioVoz::class.java)) }
+      Unit
     }
 
     OnCreate {
