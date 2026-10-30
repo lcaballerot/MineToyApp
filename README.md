@@ -48,6 +48,7 @@ En construcción. Ver el [plan](docs/es/PLAN.md) y la [decisión de arquitectura
 |---|---|
 | [Plan](docs/es/PLAN.md) | Quien siga el desarrollo |
 | [ADR-0001: pila](docs/es/ADR-0001-pila.md) | Desarrolladores |
+| [Seguridad](docs/es/SEGURIDAD.md) | Desarrolladores y quien audite |
 
 Historial de versiones: [CHANGELOG.md](CHANGELOG.md).
 

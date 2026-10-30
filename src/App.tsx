@@ -11,7 +11,7 @@ import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { AudioLines, ShoppingBag, Trophy, Vote, type LucideIcon } from "lucide-react-native";
 import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
-import { Animated, AppState, BackHandler, Keyboard, Linking, Platform, Pressable, StyleSheet, Text, View } from "react-native";
+import { Alert, Animated, AppState, BackHandler, Keyboard, Linking, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import { SafeAreaProvider, initialWindowMetrics, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { blanco, colores, fuentes } from "./tema";
@@ -24,6 +24,21 @@ void SplashScreen.preventAutoHideAsync().catch(() => {});
 
 type Id = "tienda" | "votar" | "ranking" | "voz";
 const en = getLocales()[0]?.languageCode === "en";
+const TEXTO_ENLACE = en
+  ? {
+      titulo: "Link this phone?",
+      conCodigo: (k: string) => `A link wants to link MineToy voice chat with code ${k}. Only accept if you typed /vc yourself.`,
+      sinCodigo: "A link wants to link MineToy voice chat to an account. Only accept if you typed /vc yourself.",
+      cancelar: "Cancel",
+      vincular: "Link",
+    }
+  : {
+      titulo: "¿Vincular este teléfono?",
+      conCodigo: (k: string) => `Un enlace quiere vincular el chat de voz de MineToy con el código ${k}. Acepta solo si escribiste /vc tú.`,
+      sinCodigo: "Un enlace quiere vincular el chat de voz de MineToy a una cuenta. Acepta solo si escribiste /vc tú.",
+      cancelar: "Cancelar",
+      vincular: "Vincular",
+    };
 const PESTANAS: { id: Id; nombre: string; Icono: LucideIcon; url?: string }[] = [
   {
     id: "tienda",
@@ -100,10 +115,17 @@ function Raiz() {
     setMontadas((m) => (m.has(id) ? m : new Set(m).add(id)));
   }
 
-  // Un enlace de voz (desde la web, la cámara del sistema u otra app): a la pestaña de voz y, si trae código, vincular.
+  // Un enlace de voz (desde la web, la cámara del sistema u otra app): a la pestaña de voz y, si trae código, vincular
+  // tras confirmarlo. Sin preguntar, cualquiera podría mandarte un enlace con SU código y tu teléfono quedaría unido a su
+  // cuenta (CSRF de inicio de sesión). El QR escaneado dentro de la app no pregunta: ya es un gesto tuyo.
   function abrirVoz(url: string) {
     ir("voz");
-    if (leerVinculo(url)) void motorVoz().vincular(url);
+    const v = leerVinculo(url);
+    if (!v) return;
+    Alert.alert(TEXTO_ENLACE.titulo, "codigo" in v ? TEXTO_ENLACE.conCodigo(v.codigo) : TEXTO_ENLACE.sinCodigo, [
+      { text: TEXTO_ENLACE.cancelar, style: "cancel" },
+      { text: TEXTO_ENLACE.vincular, onPress: () => void motorVoz().vincular(url) },
+    ]);
   }
 
   useEffect(() => {

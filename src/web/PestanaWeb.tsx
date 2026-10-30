@@ -138,6 +138,13 @@ const PestanaWeb = forwardRef<ControlWeb, Props>(function PestanaWeb({ url, alAb
         // La web nunca debe abrir ficheros locales ni ejecutar nada fuera de su origen.
         allowFileAccess={false}
         allowUniversalAccessFromFileURLs={false}
+        allowFileAccessFromFileURLs={false}
+        // Nada de contenido mixto ni cookies de terceros (rastreo) ni ventanas abiertas por script. Sin puente JS:
+        // la web no tiene `onMessage`, así que no puede llamar a nada nativo.
+        mixedContentMode="never"
+        thirdPartyCookiesEnabled={false}
+        javaScriptCanOpenWindowsAutomatically={false}
+        webviewDebuggingEnabled={__DEV__}
         originWhitelist={["https://*"]}
         mediaPlaybackRequiresUserAction
       />

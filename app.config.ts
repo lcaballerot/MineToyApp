@@ -25,6 +25,16 @@ const config: ExpoConfig = {
     supportsTablet: true,
     // Solo vertical: en iPad, a pantalla completa (sin Split View, que exige todas las orientaciones).
     requireFullScreen: true,
+    // Manifiesto de privacidad (obligatorio en la App Store): sin rastreo ni datos recogidos para terceros. Los módulos de
+    // Expo declaran sus propias API; aquí solo lo de la app (UserDefaults de expo-localization y SecureStore).
+    privacyManifests: {
+      NSPrivacyTracking: false,
+      NSPrivacyTrackingDomains: [],
+      NSPrivacyCollectedDataTypes: [],
+      NSPrivacyAccessedAPITypes: [
+        { NSPrivacyAccessedAPIType: "NSPrivacyAccessedAPICategoryUserDefaults", NSPrivacyAccessedAPITypeReasons: ["CA92.1"] },
+      ],
+    },
     infoPlist: {
       // Audio en segundo plano: la voz sigue con Minecraft delante. Sin `voip` (no se usa CallKit; ADR-0001).
       UIBackgroundModes: ["audio"],
@@ -42,6 +52,16 @@ const config: ExpoConfig = {
       monochromeImage: "./assets/android-icon-monochrome.png",
     },
     predictiveBackGestureEnabled: false,
+    allowBackup: false,
+    // Mínimo privilegio: el plugin de WebRTC pide estos y la app no los usa (dibujar sobre otras apps, almacenamiento).
+    blockedPermissions: [
+      "android.permission.SYSTEM_ALERT_WINDOW",
+      "android.permission.READ_EXTERNAL_STORAGE",
+      "android.permission.WRITE_EXTERNAL_STORAGE",
+      "android.permission.READ_MEDIA_IMAGES",
+      "android.permission.READ_MEDIA_VIDEO",
+      "android.permission.READ_MEDIA_AUDIO",
+    ],
     // App Links verificados del enlace de /vc (assetlinks.json de voz-control con la huella del keystore).
     intentFilters: [
       {
@@ -73,6 +93,7 @@ const config: ExpoConfig = {
     "./plugins/firma-android.js",
     "./plugins/proguard-webrtc.js",
     "./plugins/abis-android.js",
+    "./plugins/seguridad-android.js",
   ],
 };
 

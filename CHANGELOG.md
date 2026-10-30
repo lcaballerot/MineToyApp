@@ -1,5 +1,27 @@
 # Historial de versiones · Version history
 
+## 0.6.0 — sin publicar · unreleased
+
+| | |
+|---|---|
+| Android | APK firmado (prerelease `android-pruebas`) · signed APK |
+| iOS | IPA sin firma para Sideloadly (prerelease `ios-pruebas`) · unsigned IPA for Sideloadly |
+| Verificado · Verified | pendiente · pending |
+
+**🇪🇸**
+- Las fichas de micrófono y cascos son botones: silenciar y ensordecer desde la app (se ven en rojo apagados). Lo aplica el
+  servidor y `/vc` en el juego lo muestra al momento. El alcance sigue eligiéndose en `/vc`.
+- Seguridad (OWASP MASVS, ver [docs/es/SEGURIDAD.md](docs/es/SEGURIDAD.md)): un enlace externo pide confirmación antes de
+  vincular, Android sin copias de seguridad ni tráfico en claro, permisos que no se usan quitados, WebView más cerrado y
+  manifiesto de privacidad de iOS.
+
+**🇬🇧**
+- The microphone and headphone chips are buttons: mute and deafen from the app (red when off). The server applies it and
+  `/vc` in game shows it straight away. Range is still chosen in `/vc`.
+- Security (OWASP MASVS, see [docs/en/SECURITY.md](docs/en/SECURITY.md)): an external link asks for confirmation before
+  linking, Android with no backups or cleartext traffic, unused permissions removed, tighter WebView and an iOS privacy
+  manifest.
+
 ## 0.5.0 — sin publicar · unreleased
 
 | | |

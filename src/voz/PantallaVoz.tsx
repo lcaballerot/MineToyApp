@@ -16,7 +16,8 @@ import {
   type LucideIcon,
 } from "lucide-react-native";
 import { useRef, useState, useSyncExternalStore } from "react";
-import { ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import * as Haptics from "expo-haptics";
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import Svg, { Defs, RadialGradient, Rect, Stop } from "react-native-svg";
 
 import { blanco, colores, fuentes } from "../tema";
@@ -170,30 +171,92 @@ function Principal({ s, motor, visible }: { s: S; motor: Motor; visible: boolean
         <ConVc texto={mensaje} />
       </Text>
       <View style={e.fichas}>
-        <Ficha etiqueta={L.fMic} valor={s.mic ? L.on : L.off} activa={s.mic} Icono={s.mic ? Mic : MicOff} />
-        <Ficha etiqueta={L.fCascos} valor={s.cascos ? L.on : L.off} activa={s.cascos} Icono={s.cascos ? Headphones : HeadphoneOff} />
+        <Ficha
+          etiqueta={L.fMic}
+          valor={s.mic ? L.on : L.off}
+          activa={s.mic}
+          Icono={s.mic ? Mic : MicOff}
+          alPulsar={s.fase === "listo" ? () => motor.ponerAjuste("mic", !s.mic) : undefined}
+          ayuda={s.mic ? L.silenciar : L.activarMic}
+        />
+        <Ficha
+          etiqueta={L.fCascos}
+          valor={s.cascos ? L.on : L.off}
+          activa={s.cascos}
+          Icono={s.cascos ? Headphones : HeadphoneOff}
+          alPulsar={s.fase === "listo" ? () => motor.ponerAjuste("cascos", !s.cascos) : undefined}
+          ayuda={s.cascos ? L.ensordecer : L.activarCascos}
+        />
         <Ficha etiqueta={L.fAlcance} valor={alcance} activa Icono={Radio} />
       </View>
       <Text style={e.pista}>
-        <ConVc texto={`${L.hint} /vc`} />
+        <ConVc texto={L.hint} />
       </Text>
     </View>
   );
 }
 
-function Ficha({ etiqueta, valor, activa, Icono }: { etiqueta: string; valor: string; activa: boolean; Icono: LucideIcon }) {
-  return (
-    <View style={e.ficha}>
-      <View style={[e.fichaIcono, { backgroundColor: activa ? "rgba(168,85,247,0.2)" : blanco(0.06) }]}>
-        <Icono size={20} strokeWidth={2} color={activa ? colores.portal200 : blanco(0.4)} />
+/**
+ * Ficha de estado. Con `alPulsar` es un interruptor (micro y cascos): apagada se tiñe de rojo, como «silenciado» en
+ * cualquier app de llamadas, para que se vea de un vistazo. El alcance solo se muestra (se elige en /vc).
+ */
+function Ficha({
+  etiqueta,
+  valor,
+  activa,
+  Icono,
+  alPulsar,
+  ayuda,
+}: {
+  etiqueta: string;
+  valor: string;
+  activa: boolean;
+  Icono: LucideIcon;
+  alPulsar?: () => void;
+  ayuda?: string;
+}) {
+  const boton = ayuda !== undefined;
+  const apagada = boton && !activa;
+  const contenido = (
+    <>
+      <View
+        style={[e.fichaIcono, { backgroundColor: apagada ? "rgba(248,113,113,0.16)" : activa ? "rgba(168,85,247,0.2)" : blanco(0.06) }]}
+      >
+        <Icono size={20} strokeWidth={2} color={apagada ? colores.error : activa ? colores.portal200 : blanco(0.4)} />
       </View>
       <Text style={e.fichaEtiqueta} numberOfLines={1} adjustsFontSizeToFit>
         {etiqueta.toUpperCase()}
       </Text>
-      <Text style={[e.fichaValor, { color: activa ? "#ffffff" : blanco(0.45) }]} numberOfLines={1} adjustsFontSizeToFit>
+      <Text
+        style={[e.fichaValor, { color: apagada ? colores.error : activa ? "#ffffff" : blanco(0.45) }]}
+        numberOfLines={1}
+        adjustsFontSizeToFit
+      >
         {valor}
       </Text>
-    </View>
+    </>
+  );
+  if (!boton) return <View style={e.ficha}>{contenido}</View>;
+  return (
+    <Pressable
+      onPress={() => {
+        void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+        alPulsar?.();
+      }}
+      disabled={!alPulsar}
+      accessibilityRole="switch"
+      accessibilityLabel={etiqueta}
+      accessibilityState={{ checked: activa, disabled: !alPulsar }}
+      accessibilityHint={ayuda}
+      style={({ pressed }) => [
+        e.ficha,
+        apagada && e.fichaApagada,
+        !alPulsar && { opacity: 0.5 },
+        pressed && { transform: [{ scale: 0.96 }], backgroundColor: blanco(0.08) },
+      ]}
+    >
+      {contenido}
+    </Pressable>
   );
 }
 
@@ -433,6 +496,7 @@ const e = StyleSheet.create({
     borderWidth: 1,
     borderColor: blanco(0.07),
   },
+  fichaApagada: { backgroundColor: "rgba(239,68,68,0.08)", borderColor: "rgba(248,113,113,0.3)" },
   fichaIcono: {
     width: 36,
     height: 36,

@@ -47,6 +47,7 @@ Under construction. See the [plan](docs/en/PLAN.md) and the [architecture decisi
 |---|---|
 | [Plan](docs/en/PLAN.md) | Anyone following development |
 | [ADR-0001: stack](docs/en/ADR-0001-stack.md) | Developers |
+| [Security](docs/en/SECURITY.md) | Developers and auditors |
 
 Version history: [CHANGELOG.md](CHANGELOG.md).
 

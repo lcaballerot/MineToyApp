@@ -110,6 +110,8 @@ export interface MotorVoz {
   vincular(texto: string): Promise<void>;
   colgar(): void;
   reconectar(): void;
+  /** Botones de micro y cascos: el servidor lo aplica, lo guarda y avisa a `/vc` en el juego. */
+  ponerAjuste(que: "mic" | "cascos", v: boolean): void;
   ponerVolMic(v: number): void;
   ponerVolCascos(v: number): void;
   /** Nivel de tu voz (0–1) para el visualizador; null si no hay micrófono. */
@@ -666,6 +668,13 @@ export function crearMotor(textos: () => TextosServicio): MotorVoz {
     vincular,
     colgar,
     reconectar,
+    ponerAjuste(que, v) {
+      if (!ws || ws.readyState !== 1 || estado[que] === v) return;
+      // Al momento en pantalla; el `estado` que devuelve el servidor manda (si lo rechaza, vuelve solo).
+      estado = { ...estado, [que]: v };
+      enviar({ t: "ajuste", que, v });
+      avisar();
+    },
     ponerVolMic(v) {
       volMic = limitar(v, 0, 200, 100);
       guardarVolumenes();
