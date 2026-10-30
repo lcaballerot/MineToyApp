@@ -1,5 +1,6 @@
-import { forwardRef, useImperativeHandle, useRef, useState, type ComponentType, type Ref } from "react";
-import { ActivityIndicator, Linking, StyleSheet, View } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState, type ComponentType, type Ref } from "react";
+import { ActivityIndicator, Animated, Linking, StyleSheet, View } from "react-native";
 import { WebView as WebViewClase, type WebViewNavigation, type WebViewProps } from "react-native-webview";
 
 // Con los tipos de React 19.3 las props de la clase WebView se resuelven a `never` (fallo de tipos de la librería, no de
@@ -33,6 +34,7 @@ const PestanaWeb = forwardRef<ControlWeb, Props>(function PestanaWeb({ url, alAb
   const web = useRef<WebView>(null);
   const puedeAtras = useRef(false);
   const [clave, setClave] = useState(0);
+  const [progreso, setProgreso] = useState(0);
 
   useImperativeHandle(ref, () => ({
     atras() {
@@ -70,40 +72,91 @@ const PestanaWeb = forwardRef<ControlWeb, Props>(function PestanaWeb({ url, alAb
   }
 
   return (
-    <WebView
-      key={clave}
-      ref={web}
-      source={{ uri: url }}
-      style={e.web}
-      containerStyle={e.web}
-      applicationNameForUserAgent={AGENTE}
-      onShouldStartLoadWithRequest={decidir}
-      onNavigationStateChange={(n) => {
-        puedeAtras.current = n.canGoBack;
-      }}
-      // Enlaces target=_blank: en la misma vista, pasando por `decidir`.
-      setSupportMultipleWindows={false}
-      allowsBackForwardNavigationGestures
-      pullToRefreshEnabled
-      sharedCookiesEnabled
-      startInLoadingState
-      renderLoading={() => (
-        <View style={e.cargando}>
-          <ActivityIndicator color={colores.oro} size="large" />
-        </View>
-      )}
-      // La web nunca debe abrir ficheros locales ni ejecutar nada fuera de su origen.
-      allowFileAccess={false}
-      allowUniversalAccessFromFileURLs={false}
-      originWhitelist={["https://*"]}
-      mediaPlaybackRequiresUserAction
-    />
+    <View style={e.web}>
+      <WebView
+        key={clave}
+        ref={web}
+        source={{ uri: url }}
+        style={e.web}
+        containerStyle={e.web}
+        applicationNameForUserAgent={AGENTE}
+        onShouldStartLoadWithRequest={decidir}
+        onNavigationStateChange={(n) => {
+          puedeAtras.current = n.canGoBack;
+        }}
+        onLoadStart={() => setProgreso(0.05)}
+        onLoadProgress={(ev) => setProgreso(ev.nativeEvent.progress)}
+        onLoadEnd={() => setProgreso(1)}
+        // Enlaces target=_blank: en la misma vista, pasando por `decidir`.
+        setSupportMultipleWindows={false}
+        allowsBackForwardNavigationGestures
+        pullToRefreshEnabled
+        sharedCookiesEnabled
+        startInLoadingState
+        renderLoading={() => (
+          <View style={e.cargando}>
+            <ActivityIndicator color={colores.portal400} size="large" />
+          </View>
+        )}
+        // La web nunca debe abrir ficheros locales ni ejecutar nada fuera de su origen.
+        allowFileAccess={false}
+        allowUniversalAccessFromFileURLs={false}
+        originWhitelist={["https://*"]}
+        mediaPlaybackRequiresUserAction
+      />
+      {progreso < 1 && <BarraCarga progreso={progreso} />}
+    </View>
   );
 });
 
 export default PestanaWeb;
 
+/** Barra fina de carga arriba (morado → rosa → oro, los colores del visualizador). */
+function BarraCarga({ progreso }: { progreso: number }) {
+  const ancho = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.timing(ancho, {
+      toValue: Math.max(0.05, progreso),
+      duration: 200,
+      useNativeDriver: false,
+    }).start();
+  }, [ancho, progreso]);
+  return (
+    <Animated.View
+      pointerEvents="none"
+      style={[
+        e.barra,
+        {
+          width: ancho.interpolate({
+            inputRange: [0, 1],
+            outputRange: ["0%", "100%"],
+          }),
+        },
+      ]}
+    >
+      <LinearGradient
+        colors={[colores.morado, colores.lila, colores.oro300]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
+        style={StyleSheet.absoluteFill}
+      />
+    </Animated.View>
+  );
+}
+
 const e = StyleSheet.create({
   web: { flex: 1, backgroundColor: colores.fondo },
-  cargando: { ...StyleSheet.absoluteFill, alignItems: "center", justifyContent: "center", backgroundColor: colores.fondo },
+  cargando: {
+    ...StyleSheet.absoluteFill,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colores.fondo,
+  },
+  barra: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    height: 2.5,
+    boxShadow: "0 0 10px rgba(232,121,249,0.8)",
+  },
 });
