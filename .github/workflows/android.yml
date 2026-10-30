@@ -95,7 +95,7 @@ jobs:
 
   insignia:
     needs: apk
-    if: always() && github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: always() && needs.apk.result != 'cancelled' && github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v5

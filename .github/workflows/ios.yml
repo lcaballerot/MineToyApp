@@ -17,7 +17,7 @@ concurrency:
 jobs:
   # Sin cuenta de Apple Developer: compilación para el simulador, sin firma. Demuestra que compila.
   simulador:
-    runs-on: macos-15
+    runs-on: macos-26
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v5
@@ -77,7 +77,7 @@ jobs:
 
   insignia:
     needs: simulador
-    if: always() && github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: always() && needs.simulador.result != 'cancelled' && github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v5
