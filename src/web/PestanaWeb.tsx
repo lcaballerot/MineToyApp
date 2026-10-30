@@ -18,6 +18,12 @@ const VOZ = "voicechat.minetoy.fun";
 /** La web puede reconocer la app por el user agent (modo app del paso 5; ver docs/es/PLAN.md). */
 const AGENTE = `MineToyApp/${version}`;
 
+/**
+ * Modo app de la web: `data-app` en <html> antes de pintar, en cada carga de página. La web lo usa en su CSS
+ * (`web/src/app/globals.css`, `html[data-app]`) para quitar el pie, que aquí sobra con la barra de pestañas.
+ */
+const MODO_APP = `document.documentElement.setAttribute("data-app", ${JSON.stringify(version)}); true;`;
+
 export interface ControlWeb {
   /** Atrás dentro de la web; false si ya está en la primera página. */
   atras(): boolean;
@@ -80,6 +86,7 @@ const PestanaWeb = forwardRef<ControlWeb, Props>(function PestanaWeb({ url, alAb
         style={e.web}
         containerStyle={e.web}
         applicationNameForUserAgent={AGENTE}
+        injectedJavaScriptBeforeContentLoaded={MODO_APP}
         onShouldStartLoadWithRequest={decidir}
         onNavigationStateChange={(n) => {
           puedeAtras.current = n.canGoBack;
