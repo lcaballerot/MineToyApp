@@ -104,11 +104,10 @@ jobs:
       - uses: actions/checkout@v5
       - name: Insignia de compilación
         run: |
-          if [ "${{ needs.apk.result }}" = success ]; then es=correcta; en=passing; color=6eff4a; else es=fallida; en=failing; color=c93434; fi
-          mkdir -p .github/badges
-          base="https://img.shields.io/badge"
-          curl -sfL --retry 4 --retry-all-errors --retry-delay 5 "$base/compilaci%C3%B3n%20android-$es-$color?style=for-the-badge&logo=githubactions&logoColor=white" -o .github/badges/compilacion-android.svg
-          curl -sfL --retry 4 --retry-all-errors --retry-delay 5 "$base/build%20android-$en-$color?style=for-the-badge&logo=githubactions&logoColor=white" -o .github/badges/build-android.svg
+          # Copia de una plantilla del repo (shields.io rechaza a veces a los runners de GitHub: exit 22).
+          if [ "${{ needs.apk.result }}" = success ]; then e=ok; es=correcta; else e=mal; es=fallida; fi
+          cp .github/badges/plantillas/compilacion-android-$e.svg .github/badges/compilacion-android.svg
+          cp .github/badges/plantillas/build-android-$e.svg .github/badges/build-android.svg
           git add .github/badges
           if git diff --cached --quiet; then exit 0; fi
           git -c user.name=MineToy -c user.email=itzlightx@gmail.com commit -m "Insignia de compilación de Android: $es"
