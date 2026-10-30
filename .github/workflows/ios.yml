@@ -62,18 +62,11 @@ jobs:
           name: xcodebuild-log
           path: ${{ runner.temp }}/xcodebuild.log
           retention-days: 7
+        continue-on-error: true # la cuota de artefactos es de toda la cuenta
 
-      - name: Empaquetar la app del simulador
-        run: |
-          app=$(ls -d ios/build/Build/Products/Release-iphonesimulator/*.app | head -1)
-          mkdir -p salida
-          ditto -c -k --keepParent "$app" salida/MineToy-simulador.zip
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: MineToy-ios-simulador
-          path: salida/
-          retention-days: 14
+      # La app del simulador no se sube: sin Mac nadie la puede abrir y gasta la cuota de artefactos de la cuenta.
+      - name: La app del simulador existe
+        run: ls -d ios/build/Build/Products/Release-iphonesimulator/MineToy.app
 
   insignia:
     needs: simulador
