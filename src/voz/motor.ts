@@ -37,6 +37,8 @@ export interface InstantaneaVoz {
   jugando: boolean;
   mic: boolean;
   cascos: boolean;
+  /** Oír las radios del mundo (contrato 9.5); se cambia solo en /vc. */
+  radio: boolean;
   modo: ModoVoz;
   volMic: number;
   volCascos: number;
@@ -126,7 +128,7 @@ export function crearMotor(textos: () => TextosServicio): MotorVoz {
   let fase: FaseVoz = "conectando";
   let caducada = false;
   let jugando = false;
-  let estado = { mic: true, cascos: true, modo: "normal" as ModoVoz };
+  let estado = { mic: true, cascos: true, radio: true, modo: "normal" as ModoVoz };
   let volMic = 100;
   let volCascos = 100;
   let enviarVolMic: ReturnType<typeof setTimeout> | null = null;
@@ -164,6 +166,7 @@ export function crearMotor(textos: () => TextosServicio): MotorVoz {
       jugando,
       mic: estado.mic,
       cascos: estado.cascos,
+      radio: estado.radio,
       modo: estado.modo,
       volMic,
       volCascos,
@@ -308,7 +311,8 @@ export function crearMotor(textos: () => TextosServicio): MotorVoz {
 
   function aplicarEstado(m: Mensaje) {
     const modo: ModoVoz = m.modo === "susurro" || m.modo === "grito" ? m.modo : "normal";
-    estado = { mic: m.mic !== false, cascos: m.cascos !== false, modo };
+    // `radio` falta en un voz-control anterior a Core-Radio: por defecto, encendida.
+    estado = { mic: m.mic !== false, cascos: m.cascos !== false, radio: m.radio !== false, modo };
     avisar();
   }
 

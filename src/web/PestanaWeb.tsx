@@ -15,7 +15,9 @@ import { blanco, colores, fuentes } from "../tema";
 import { Boton, Mosaico } from "../ui/piezas";
 
 /** Dominios de MineToy que se abren dentro de la app. Cualquier otro (pasarelas de pago incluidas) va al navegador. */
-const DENTRO = new Set(["store.minetoy.fun", "vote.minetoy.fun", "minetoy.fun", "www.minetoy.fun"]);
+// radio.minetoy.fun: panel de radios de los VIP; el inicio de sesión único (store → radio/vote con un código de un uso)
+// pasa entre estos dominios sin salir de la app. Las cookies son del sistema y las comparten todas las pestañas.
+const DENTRO = new Set(["store.minetoy.fun", "vote.minetoy.fun", "radio.minetoy.fun", "minetoy.fun", "www.minetoy.fun"]);
 const VOZ = "voicechat.minetoy.fun";
 
 /** La web puede reconocer la app por el user agent (modo app del paso 5; ver docs/es/PLAN.md). */

@@ -9,6 +9,8 @@ import {
   MicOff,
   PhoneOff,
   Radio,
+  Speaker,
+  VolumeX,
   RefreshCw,
   ScanLine,
   TriangleAlert,
@@ -171,23 +173,29 @@ function Principal({ s, motor, visible }: { s: S; motor: Motor; visible: boolean
         <ConVc texto={mensaje} />
       </Text>
       <View style={e.fichas}>
-        <Ficha
-          etiqueta={L.fMic}
-          valor={s.mic ? L.on : L.off}
-          activa={s.mic}
-          Icono={s.mic ? Mic : MicOff}
-          alPulsar={s.fase === "listo" ? () => motor.ponerAjuste("mic", !s.mic) : undefined}
-          ayuda={s.mic ? L.silenciar : L.activarMic}
-        />
-        <Ficha
-          etiqueta={L.fCascos}
-          valor={s.cascos ? L.on : L.off}
-          activa={s.cascos}
-          Icono={s.cascos ? Headphones : HeadphoneOff}
-          alPulsar={s.fase === "listo" ? () => motor.ponerAjuste("cascos", !s.cascos) : undefined}
-          ayuda={s.cascos ? L.ensordecer : L.activarCascos}
-        />
-        <Ficha etiqueta={L.fAlcance} valor={alcance} activa Icono={Radio} />
+        <View style={e.filaFichas}>
+          <Ficha
+            etiqueta={L.fMic}
+            valor={s.mic ? L.on : L.off}
+            activa={s.mic}
+            Icono={s.mic ? Mic : MicOff}
+            alPulsar={s.fase === "listo" ? () => motor.ponerAjuste("mic", !s.mic) : undefined}
+            ayuda={s.mic ? L.silenciar : L.activarMic}
+          />
+          <Ficha
+            etiqueta={L.fCascos}
+            valor={s.cascos ? L.on : L.off}
+            activa={s.cascos}
+            Icono={s.cascos ? Headphones : HeadphoneOff}
+            alPulsar={s.fase === "listo" ? () => motor.ponerAjuste("cascos", !s.cascos) : undefined}
+            ayuda={s.cascos ? L.ensordecer : L.activarCascos}
+          />
+        </View>
+        {/* Solo se muestran: el alcance y las radios se eligen en /vc. */}
+        <View style={e.filaFichas}>
+          <Ficha etiqueta={L.fAlcance} valor={alcance} activa Icono={Radio} />
+          <Ficha etiqueta={L.fRadio} valor={s.radio ? L.on : L.off} activa={s.radio} Icono={s.radio ? Speaker : VolumeX} />
+        </View>
       </View>
       <Text style={e.pista}>
         <ConVc texto={L.hint} />
@@ -481,12 +489,8 @@ const e = StyleSheet.create({
     textAlign: "center",
     marginTop: 16,
   },
-  fichas: {
-    flexDirection: "row",
-    gap: 10,
-    marginTop: 24,
-    alignSelf: "stretch",
-  },
+  fichas: { gap: 10, marginTop: 24, alignSelf: "stretch" },
+  filaFichas: { flexDirection: "row", gap: 10 },
   ficha: {
     flex: 1,
     alignItems: "center",

@@ -14,6 +14,8 @@
 - Seguridad (OWASP MASVS, ver [docs/es/SEGURIDAD.md](docs/es/SEGURIDAD.md)): un enlace externo pide confirmación antes de
   vincular, Android sin copias de seguridad ni tráfico en claro, permisos que no se usan quitados, WebView más cerrado y
   manifiesto de privacidad de iOS.
+- Ficha «Radios» (solo se muestra; se cambia en `/vc`) y `radio.minetoy.fun` dentro de la app, para el panel de radios y el
+  inicio de sesión único de la web.
 
 **🇬🇧**
 - The microphone and headphone chips are buttons: mute and deafen from the app (red when off). The server applies it and
@@ -21,6 +23,8 @@
 - Security (OWASP MASVS, see [docs/en/SECURITY.md](docs/en/SECURITY.md)): an external link asks for confirmation before
   linking, Android with no backups or cleartext traffic, unused permissions removed, tighter WebView and an iOS privacy
   manifest.
+- "Radios" chip (display only; changed in `/vc`) and `radio.minetoy.fun` inside the app, for the radio panel and the
+  website single sign-on.
 
 ## 0.5.0 — sin publicar · unreleased
 
