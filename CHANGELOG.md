@@ -1,5 +1,39 @@
 # Historial de versiones · Version history
 
+## 0.7.0 — sin publicar · unreleased
+
+| | |
+|---|---|
+| Android | APK firmado (prerelease `android-pruebas`) · signed APK |
+| iOS | IPA sin firma para Sideloadly (prerelease `ios-pruebas`) · unsigned IPA for Sideloadly |
+| Verificado · Verified | `npm test` 26/26, `tsc`, `expo prebuild` Android; en teléfono, pendiente · on a phone, pending |
+
+**🇪🇸**
+- Mismo comportamiento que la web y voz-control de hoy: la ficha de radio sigue `estado.radio` campo a campo (un valor con
+  otro tipo no cambia nada), el volumen del micro va siempre entero 0–200 (un decimal cerraba la voz con 4400) y los
+  botones de micro y cascos respetan en la app el tope de 8 cada 5 s.
+- Enlaces `/link` de cuentas (`minetoy://link/<CÓDIGO>`): solo con un código válido y solo hacia la tienda.
+- Seguridad (OWASP MASVS + Mobile Top 10, tabla en [docs/es/SEGURIDAD.md](docs/es/SEGURIDAD.md)):
+  - reglas juntas en `src/seguridad/reglas.ts` con una prueba por regla (`npm test`, también en CI);
+  - el apex `minetoy.fun` sale de la WebView; `javascript:`, `file:`, `intent:` bloqueados;
+  - token en el llavero con `AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY` (reconecta con la pantalla bloqueada);
+  - sin capturas en la vista de vincular;
+  - Android solo con las CA del sistema;
+  - avisos moderados de `npm audit` resueltos con `overrides`.
+
+**🇬🇧**
+- Same behaviour as today's website and voz-control: the radio chip follows `estado.radio` field by field (a value of the
+  wrong type changes nothing), the mic volume is always an integer 0–200 (a decimal closed voice with 4400) and the mic and
+  headphone buttons keep to the 8-per-5-s limit in the app too.
+- Account `/link` links (`minetoy://link/<CODE>`): only with a valid code and only to the store.
+- Security (OWASP MASVS + Mobile Top 10, table in [docs/en/SECURITY.md](docs/en/SECURITY.md)):
+  - rules together in `src/seguridad/reglas.ts` with one test per rule (`npm test`, also in CI);
+  - the `minetoy.fun` apex leaves the WebView; `javascript:`, `file:`, `intent:` blocked;
+  - token in the keychain with `AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY` (reconnects with the screen locked);
+  - no screenshots on the link view;
+  - Android trusts system CAs only;
+  - moderate `npm audit` advisories cleared with `overrides`.
+
 ## 0.6.0 — sin publicar · unreleased
 
 | | |
