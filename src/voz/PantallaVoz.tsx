@@ -17,7 +17,8 @@ import {
   Volume2,
   type LucideIcon,
 } from "lucide-react-native";
-import { useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import * as Captura from "expo-screen-capture";
 import * as Haptics from "expo-haptics";
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import Svg, { Defs, RadialGradient, Rect, Stop } from "react-native-svg";
@@ -88,7 +89,7 @@ export default function PantallaVoz({ visible }: { visible: boolean }) {
           <Pastilla texto={estado.texto} categoria={estado.categoria} />
         </View>
         {s.vista === "conectado" && <Principal s={s} motor={motor} visible={visible} />}
-        {s.vista === "vincular" && <Vincular s={s} motor={motor} />}
+        {s.vista === "vincular" && <Vincular s={s} motor={motor} visible={visible} />}
         {s.vista === "micro" && (
           <Mensaje
             Icono={MicOff}
@@ -301,9 +302,16 @@ function Mensaje({
 }
 
 /* ---------------------------------------------------------------- vincular */
-function Vincular({ s, motor }: { s: S; motor: Motor }) {
+function Vincular({ s, motor, visible }: { s: S; motor: Motor; visible: boolean }) {
   const [codigo, setCodigo] = useState("");
   const [camara, setCamara] = useState(false);
+  // El código (y el QR de la cámara) da acceso a tu voz durante 5 min: sin capturas ni grabación mientras se ve, y
+  // Android no lo enseña en la miniatura de apps recientes (FLAG_SECURE).
+  useEffect(() => {
+    if (!visible) return;
+    void Captura.preventScreenCaptureAsync("vincular").catch(() => {});
+    return () => void Captura.allowScreenCaptureAsync("vincular").catch(() => {});
+  }, [visible]);
   const error =
     s.errorVincular === "limite" ? L.errLimite : s.errorVincular === "red" ? L.errRed : s.errorVincular === "codigo" ? L.errCodigo : null;
   const enviar = () => {
@@ -343,7 +351,7 @@ function Vincular({ s, motor }: { s: S; motor: Motor }) {
           setCodigo(
             x
               .toUpperCase()
-              .replace(/[^A-Z0-9]/g, "")
+              .replace(/[^2-9A-HJKMNP-Z]/g, "") // solo el alfabeto de /vc (sin 0, 1, I, L, O)
               .slice(0, 6),
           )
         }
