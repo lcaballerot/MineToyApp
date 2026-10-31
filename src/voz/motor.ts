@@ -18,6 +18,17 @@ import { mediaDevices, registerGlobals, type MediaStream, type MediaStreamTrack 
 import type { Consumer, Producer, Transport } from "mediasoup-client/types";
 
 import * as nativo from "../../modules/voz-nativo";
+import {
+  type EstadoVoz,
+  type ModoVoz,
+  crearLimiteAjustes,
+  frameAjuste,
+  leerEstado,
+  leerVinculo,
+  limitar,
+  modeloSeguro,
+  volumen,
+} from "../seguridad/reglas";
 
 registerGlobals();
 
@@ -27,7 +38,7 @@ const ORIGEN_APP = "minetoyvoz://app";
 
 export type VistaVoz = "vincular" | "conectado" | "colgado" | "micro" | "otra";
 export type FaseVoz = "conectando" | "listo" | "error";
-export type ModoVoz = "susurro" | "normal" | "grito";
+export type { ModoVoz };
 export type ErrorVincular = "codigo" | "limite" | "red" | null;
 
 export interface InstantaneaVoz {
@@ -68,20 +79,10 @@ const CLAVE_TOKEN = "voz.token";
 const CLAVE_CASCOS = "voz.volCascos";
 const CLAVE_MIC = "voz.volMic";
 const B64 = /^[A-Za-z0-9_-]{43}$/;
-const CODIGO = /^[23456789ABCDEFGHJKMNPQRSTUVWXYZ]{6}$/;
+/** El token debe poder leerse con la pantalla bloqueada (reconexión en segundo plano), pero nunca salir del teléfono. */
+const LLAVERO = { keychainAccessible: SecureStore.AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY };
 
-/**
- * Lee lo que trae un QR de `/vc`, un enlace o lo que el jugador escribe: el código corto (`K7Q2XM`, también en
- * `https://voicechat.minetoy.fun/K7Q2XM` o `/en/K7Q2XM`) o el token del enlace largo (`/#t=…`).
- */
-export function leerVinculo(texto: string): { codigo: string } | { token: string } | null {
-  const t = texto.trim();
-  const largo = /^https:\/\/voicechat\.minetoy\.fun\/(?:(?:en|es)\/?)?#t=([A-Za-z0-9_-]{43})$/i.exec(t);
-  if (largo) return { token: largo[1] };
-  const corto = /^https:\/\/voicechat\.minetoy\.fun\/(?:(?:en|es)\/)?([A-Za-z0-9]{6})\/?$/i.exec(t);
-  const crudo = (corto ? corto[1] : t).toUpperCase().replace(/[\s-]/g, "");
-  return CODIGO.test(crudo) ? { codigo: crudo } : null;
-}
+export { leerVinculo };
 
 /** Ganancia lineal por distancia hasta R, como el `PannerNode` lineal de la web (refDistance 1). */
 export function gananciaDistancia(x: number, y: number, z: number, r: number): number {
@@ -90,17 +91,6 @@ export function gananciaDistancia(x: number, y: number, z: number, r: number): n
   if (d <= 1) return 1;
   if (d >= max) return 0;
   return 1 - (d - 1) / (max - 1);
-}
-
-const limitar = (v: unknown, a: number, b: number, def: number) =>
-  typeof v === "number" && Number.isFinite(v) ? Math.min(b, Math.max(a, v)) : def;
-
-function modeloSeguro(): string | undefined {
-  const m = (Device.modelName ?? "")
-    .replace(/[^\w .,()+-]/g, "")
-    .slice(0, 64)
-    .trim();
-  return m || undefined;
 }
 
 export interface MotorVoz {
@@ -128,7 +118,7 @@ export function crearMotor(textos: () => TextosServicio): MotorVoz {
   let fase: FaseVoz = "conectando";
   let caducada = false;
   let jugando = false;
-  let estado = { mic: true, cascos: true, radio: true, modo: "normal" as ModoVoz };
+  let estado: EstadoVoz = { mic: true, cascos: true, radio: true, modo: "normal" };
   let volMic = 100;
   let volCascos = 100;
   let enviarVolMic: ReturnType<typeof setTimeout> | null = null;
@@ -149,6 +139,7 @@ export function crearMotor(textos: () => TextosServicio): MotorVoz {
   let detenido = false;
   let conectando = false;
   let reintentos = 0;
+  const permitirAjuste = crearLimiteAjustes();
   let corr = 0;
   let muerto = false;
   let temporizador: ReturnType<typeof setTimeout> | null = null;
@@ -199,7 +190,10 @@ export function crearMotor(textos: () => TextosServicio): MotorVoz {
         method: "POST",
         // Sin Origin: el fetch de React Native no lo pone, y el servidor lo acepta ausente en /api/app/*.
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...v, dispositivo: { plataforma: Platform.OS === "ios" ? "ios" : "android", modelo: modeloSeguro() } }),
+        body: JSON.stringify({
+          ...v,
+          dispositivo: { plataforma: Platform.OS === "ios" ? "ios" : "android", modelo: modeloSeguro(Device.modelName) },
+        }),
       });
       if (r.status === 429) errorVincular = "limite";
       else if (!r.ok) errorVincular = "codigo";
@@ -207,7 +201,7 @@ export function crearMotor(textos: () => TextosServicio): MotorVoz {
         const cuerpo = (await r.json()) as { ok?: boolean; token?: unknown };
         if (cuerpo.ok && typeof cuerpo.token === "string" && B64.test(cuerpo.token)) {
           token = cuerpo.token;
-          await SecureStore.setItemAsync(CLAVE_TOKEN, token, { keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY });
+          await SecureStore.setItemAsync(CLAVE_TOKEN, token, LLAVERO);
           caducada = false;
           detenido = false;
           reintentos = 0;
@@ -310,9 +304,7 @@ export function crearMotor(textos: () => TextosServicio): MotorVoz {
   }
 
   function aplicarEstado(m: Mensaje) {
-    const modo: ModoVoz = m.modo === "susurro" || m.modo === "grito" ? m.modo : "normal";
-    // `radio` falta en un voz-control anterior a Core-Radio: por defecto, encendida.
-    estado = { mic: m.mic !== false, cascos: m.cascos !== false, radio: m.radio !== false, modo };
+    estado = leerEstado(m, estado);
     avisar();
   }
 
@@ -617,15 +609,15 @@ export function crearMotor(textos: () => TextosServicio): MotorVoz {
   /** Volumen guardado (0–200); 100 si no hay (`Number(null)` sería 0 y empezaría en silencio). */
   async function leerVolumen(clave: string): Promise<number> {
     const crudo = await SecureStore.getItemAsync(clave).catch(() => null);
-    return crudo == null || crudo === "" ? 100 : limitar(Number(crudo), 0, 200, 100);
+    return crudo == null || crudo === "" ? 100 : volumen(Number(crudo));
   }
   /** Al Keychain/Keystore como mucho cada 400 ms mientras se arrastra un deslizador. */
   function guardarVolumenes() {
     if (guardarVols) clearTimeout(guardarVols);
     guardarVols = setTimeout(() => {
       guardarVols = null;
-      void SecureStore.setItemAsync(CLAVE_MIC, String(volMic)).catch(() => {});
-      void SecureStore.setItemAsync(CLAVE_CASCOS, String(volCascos)).catch(() => {});
+      void SecureStore.setItemAsync(CLAVE_MIC, String(volMic), LLAVERO).catch(() => {});
+      void SecureStore.setItemAsync(CLAVE_CASCOS, String(volCascos), LLAVERO).catch(() => {});
     }, 400);
   }
 
@@ -637,6 +629,8 @@ export function crearMotor(textos: () => TextosServicio): MotorVoz {
       volMic = await leerVolumen(CLAVE_MIC);
       token = await SecureStore.getItemAsync(CLAVE_TOKEN).catch(() => null);
       if (token && !B64.test(token)) await olvidarToken();
+      // Migración (0.7.0): los tokens de antes se guardaron con WHEN_UNLOCKED; se reescriben con la accesibilidad nueva.
+      else if (token) await SecureStore.setItemAsync(CLAVE_TOKEN, token, LLAVERO).catch(() => {});
       bajas.push(nativo.alColgar(() => colgar()).remove);
       bajas.push(nativo.alVolverAudio(() => despertar()).remove);
       bajas.push(NetInfo.addEventListener((e) => e.isConnected && despertar()));
@@ -673,14 +667,15 @@ export function crearMotor(textos: () => TextosServicio): MotorVoz {
     colgar,
     reconectar,
     ponerAjuste(que, v) {
-      if (!ws || ws.readyState !== 1 || estado[que] === v) return;
+      const frame = frameAjuste(que, v);
+      if (!frame || !ws || ws.readyState !== 1 || estado[que] === v || !permitirAjuste(Date.now())) return;
       // Al momento en pantalla; el `estado` que devuelve el servidor manda (si lo rechaza, vuelve solo).
       estado = { ...estado, [que]: v };
-      enviar({ t: "ajuste", que, v });
+      enviar(frame);
       avisar();
     },
     ponerVolMic(v) {
-      volMic = limitar(v, 0, 200, 100);
+      volMic = volumen(v);
       guardarVolumenes();
       // Mientras se arrastra, como mucho un mensaje cada 150 ms (el servidor corta a 50 frames/s).
       if (!enviarVolMic) {
@@ -692,7 +687,7 @@ export function crearMotor(textos: () => TextosServicio): MotorVoz {
       avisar();
     },
     ponerVolCascos(v) {
-      volCascos = limitar(v, 0, 200, 100);
+      volCascos = volumen(v);
       guardarVolumenes();
       for (const voz of voces.values()) aplicarVolumen(voz);
       avisar();

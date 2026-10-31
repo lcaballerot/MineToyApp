@@ -17,7 +17,7 @@ import { SafeAreaProvider, initialWindowMetrics, useSafeAreaInsets } from "react
 import { blanco, colores, fuentes } from "./tema";
 import { alfa } from "./ui/piezas";
 import PantallaVoz, { estadoVoz, motorVoz } from "./voz/PantallaVoz";
-import { leerVinculo } from "./voz/motor";
+import { leerEnlaceLink, leerVinculo } from "./seguridad/reglas";
 import PestanaWeb, { type ControlWeb } from "./web/PestanaWeb";
 
 void SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -130,7 +130,13 @@ function Raiz() {
 
   useEffect(() => {
     const abrir = (url: string | null | undefined) => {
-      if (url && leerVinculo(url)) abrirVoz(url);
+      if (!url) return;
+      // Enlace de /link (vincular la cuenta de la web con el juego): solo con un código válido y solo hacia la tienda.
+      const link = leerEnlaceLink(url);
+      if (link) {
+        ir("tienda");
+        webs.current.tienda?.abrir(link);
+      } else if (url.startsWith("https://voicechat.minetoy.fun/") && leerVinculo(url)) abrirVoz(url);
     };
     void Linking.getInitialURL().then(abrir);
     const sub = Linking.addEventListener("url", (e) => abrir(e.url));

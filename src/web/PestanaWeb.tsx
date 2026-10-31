@@ -12,13 +12,11 @@ const WebView = WebViewClase as unknown as ComponentType<WebViewProps & { ref?: 
 
 import { version } from "../../package.json";
 import { blanco, colores, fuentes } from "../tema";
+import { destinoUrl } from "../seguridad/reglas";
 import { Boton, Mosaico } from "../ui/piezas";
 
-/** Dominios de MineToy que se abren dentro de la app. Cualquier otro (pasarelas de pago incluidas) va al navegador. */
-// radio.minetoy.fun: panel de radios de los VIP; el inicio de sesión único (store → radio/vote con un código de un uso)
-// pasa entre estos dominios sin salir de la app. Las cookies son del sistema y las comparten todas las pestañas.
-const DENTRO = new Set(["store.minetoy.fun", "vote.minetoy.fun", "radio.minetoy.fun", "minetoy.fun", "www.minetoy.fun"]);
-const VOZ = "voicechat.minetoy.fun";
+// Qué se abre dentro y qué no: src/seguridad/reglas.ts (`destinoUrl`). Las cookies (sesión `__Host-cuenta` de cada host y
+// el inicio de sesión único store → vote/radio) viven en el almacén del sistema, persistente y compartido por todas las pestañas.
 
 /** La web puede reconocer la app por el user agent (modo app del paso 5; ver docs/es/PLAN.md). */
 const AGENTE = `MineToyApp/${version}`;
@@ -47,6 +45,8 @@ export interface ControlWeb {
   /** Atrás dentro de la web; false si ya está en la primera página. */
   atras(): boolean;
   inicio(): void;
+  /** Abre una página ya validada de esta web (enlace de /link). */
+  abrir(url: string): void;
 }
 
 interface Props {
@@ -60,6 +60,8 @@ const PestanaWeb = forwardRef<ControlWeb, Props>(function PestanaWeb({ url, alAb
   const puedeAtras = useRef(false);
   const [clave, setClave] = useState(0);
   const [progreso, setProgreso] = useState(0);
+  // Página que carga el WebView: la portada, o un enlace validado que llegó de fuera (abrir).
+  const [fuente, setFuente] = useState(url);
 
   useImperativeHandle(ref, () => ({
     atras() {
@@ -70,29 +72,29 @@ const PestanaWeb = forwardRef<ControlWeb, Props>(function PestanaWeb({ url, alAb
     inicio() {
       web.current?.injectJavaScript(arribaOPortada(url));
     },
+    abrir(destino) {
+      if (destinoUrl(destino) !== "dentro") return;
+      // Cambiar `source` navega sin rehacer el WebView (vale también antes de la primera carga); si es la misma, se fuerza.
+      if (destino !== fuente) setFuente(destino);
+      else web.current?.injectJavaScript(`location.href = ${JSON.stringify(destino)}; true;`);
+    },
   }));
 
   function decidir(peticion: WebViewNavigation): boolean {
-    let host: string;
-    try {
-      const u = new URL(peticion.url);
-      if (u.protocol !== "https:") {
-        // about:blank y similares los usa la propia web; mailto:, tel: y demás, a su app.
-        if (u.protocol === "about:" || u.protocol === "blob:" || u.protocol === "data:") return true;
+    switch (destinoUrl(peticion.url)) {
+      case "dentro":
+      case "pagina": // about:blank, blob: y data: los usa la propia página
+        return true;
+      case "voz":
+        alAbrirVoz(peticion.url);
+        return false;
+      case "navegador": // pasarelas de pago y cualquier otro sitio: navegador del sistema, sin nada de la app
+      case "sistema": // mailto:, tel:
         void Linking.openURL(peticion.url).catch(() => {});
         return false;
-      }
-      host = u.hostname;
-    } catch {
-      return false;
+      default:
+        return false;
     }
-    if (DENTRO.has(host)) return true;
-    if (host === VOZ) {
-      alAbrirVoz(peticion.url);
-      return false;
-    }
-    void Linking.openURL(peticion.url).catch(() => {});
-    return false;
   }
 
   return (
@@ -100,7 +102,7 @@ const PestanaWeb = forwardRef<ControlWeb, Props>(function PestanaWeb({ url, alAb
       <WebView
         key={clave}
         ref={web}
-        source={{ uri: url }}
+        source={{ uri: fuente }}
         style={e.web}
         containerStyle={e.web}
         applicationNameForUserAgent={AGENTE}

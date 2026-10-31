@@ -36,6 +36,9 @@ jobs:
 
       - run: npm ci
       - run: npx tsc --noEmit
+      # Reglas de seguridad (una prueba por regla) y ninguna vulnerabilidad crítica en lo que se instala.
+      - run: npm test
+      - run: npm audit --omit=dev --audit-level=critical
       - run: npx expo prebuild --platform ios --clean --no-install
 
       - name: pod install
